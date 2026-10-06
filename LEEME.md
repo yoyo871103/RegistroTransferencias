@@ -119,3 +119,18 @@ trabajando con service workers.
 
 Cuando la tablet detecta una versión nueva, le pregunta al cajero si quiere
 actualizar. Los registros guardados no se tocan.
+
+---
+
+## Cambiar los formatos del No. de transacción
+
+Los botones **KW**, **BR** y **MM** de la captura ponen solos el inicio y el
+final del código (por ejemplo `KW601` … `999`). El banco va aumentando esos
+números con el tiempo. Cuando cambien, ve a **Ajustes → Formatos de No. de
+transacción**, corrige el inicio o el final y toca **Guardar formatos**.
+
+- La cantidad de caracteres que escribe el cajero se calcula sola: el código
+  siempre mide 13.
+- Los registros ya guardados no se modifican.
+- Los formatos se guardan en la tablet y entran en la copia de seguridad.
+- **Valores de fábrica** vuelve a `KW601…999`, `BR60…997` y `MM604…987`.

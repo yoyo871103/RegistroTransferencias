@@ -197,6 +197,16 @@
 <div class="vista" id="vAjustes">
   <header><div class="h1">Ajustes</div><div class="h2">Cuidado con lo de abajo</div></header>
   <div class="cuerpo">
+    <div class="sec">Formatos de No. de transacción</div>
+    <p style="color:var(--soft);font-size:14px;margin:0 0 10px">
+      El inicio y el final que la app pone sola en cada botón. Cámbialos cuando
+      el banco los cambie; los registros ya guardados no se tocan.</p>
+    <div id="formatos"></div>
+    <div class="avi" id="aviFormatos"></div>
+    <div class="fila" style="margin-top:10px">
+      <button class="gr" onclick="guardarFormatos()">Guardar formatos</button>
+      <button class="ln" onclick="formatosFabrica()">Valores de fábrica</button>
+    </div>
     <div class="sec">Datos guardados</div>
     <div id="infoDatos" style="font-family:var(--mono);font-size:14px;line-height:1.9"></div>
     <div class="avi war on" style="margin-top:18px">
@@ -253,14 +263,18 @@ var CLAVE = 'vt_registro_transferencias_v1';
 
 /* Patrones deducidos de 717 créditos reales de dos estados de cuenta del BPA.
    Todas las referencias miden 13 caracteres; solo cambia el trozo central.
-   Cubren el 99.9%; el resto se teclea completo con "Otro". */
-var PATRONES = [
-  { id:'KW', pre:'KW601', med:5, suf:'999' },
-  { id:'BR', pre:'BR60',  med:6, suf:'997' },
-  { id:'MM', pre:'MM604', med:5, suf:'987' },
-  { id:'Otro', pre:'',    med:13, suf:'' }
+   Cubren el 99.9%; el resto se teclea completo con "Otro".
+   El inicio y el final se configuran en Ajustes (d.patrones), porque el banco
+   los va aumentando; estos son los valores de fábrica. El trozo que teclea
+   el cajero se calcula: 13 - inicio - final. */
+var LARGO = 13;
+var FABRICA = [
+  { id:'KW', pre:'KW601', suf:'999' },
+  { id:'BR', pre:'BR60',  suf:'997' },
+  { id:'MM', pre:'MM604', suf:'987' }
 ];
-var patron = PATRONES[0];
+var OTRO = { id:'Otro', pre:'', med:LARGO, suf:'' };
+var patron = null;
 var d = {};   // estado en memoria
 var lote = null;
 var editando = null;
@@ -271,8 +285,22 @@ function cargar(){
     var t = localStorage.getItem(CLAVE);
     d = t ? JSON.parse(t) : {};
   } catch(e){ d = {}; }
+  completar();
+}
+// valores por defecto para datos nuevos o respaldos de versiones anteriores
+function completar(){
   if (!d.cajeros || !d.cajeros.length) d.cajeros = ['Cajero 1'];
   if (!d.registros) d.registros = [];
+  if (!d.patrones || !d.patrones.length) d.patrones = JSON.parse(JSON.stringify(FABRICA));
+}
+function patrones(){
+  return d.patrones.map(function(p){
+    return { id:p.id, pre:p.pre, suf:p.suf, med:LARGO - p.pre.length - p.suf.length };
+  }).concat([OTRO]);
+}
+function buscarPatron(id){
+  var ps = patrones();
+  return ps.filter(function(p){ return p.id === id; })[0] || ps[0];
 }
 function guardar(){
   try {
@@ -415,7 +443,7 @@ function pintarCaptura(){
 }
 
 function pintarPatrones(){
-  $('pats').innerHTML = PATRONES.map(function(p){
+  $('pats').innerHTML = patrones().map(function(p){
     return '<button class="' + (p.id===patron.id?'sel':'') +
            '" onclick="ponerPatron(\'' + p.id + '\')">' + p.id + '</button>';
   }).join('');
@@ -428,7 +456,7 @@ function pintarPatrones(){
   pintarPrevio();
 }
 function ponerPatron(id){
-  patron = PATRONES.filter(function(p){ return p.id === id; })[0] || PATRONES[0];
+  patron = buscarPatron(id);
   d.ultimoPatron = id; guardar();
   $('inCod').value = '';
   pintarPatrones();
@@ -631,7 +659,78 @@ function pintarAjustes(){
     'Lotes: <b>' + Object.keys(f).length + '</b><br>' +
     'Cajeros: <b>' + d.cajeros.length + '</b><br>' +
     'Total: <b>' + fmt(suma(d.registros)) + ' CUP</b>';
+  pintarFormatos();
 }
+function pintarFormatos(){
+  $('formatos').innerHTML = d.patrones.map(function(p, i){
+    return '<div class="lote" style="display:block"><div class="f">Botón ' + esc(p.id) + '</div>' +
+      '<div class="fila">' +
+      '<div style="min-width:0"><label>Inicio</label><input class="cod" data-i="' + i +
+        '" id="fPre' + i + '" maxlength="12" autocomplete="off" spellcheck="false" value="' +
+        esc(p.pre) + '"></div>' +
+      '<div style="min-width:0"><label>Final</label><input class="cod" data-i="' + i +
+        '" id="fSuf' + i + '" maxlength="12" autocomplete="off" spellcheck="false" value="' +
+        esc(p.suf) + '"></div></div>' +
+      '<div class="prev" id="fPrev' + i + '"></div></div>';
+  }).join('');
+  d.patrones.forEach(function(p, i){ previoFormato(i); });
+  aviso('aviFormatos','');
+}
+function leerFormato(i){
+  var pre = $('fPre' + i).value, suf = $('fSuf' + i).value;
+  return { id:d.patrones[i].id, pre:pre, suf:suf, med:LARGO - pre.length - suf.length };
+}
+function previoFormato(i){
+  var f = leerFormato(i), e = $('fPrev' + i);
+  if (f.med < 1){
+    e.textContent = 'Inicio y final suman ' + (f.pre.length + f.suf.length) +
+                    ' caracteres; el máximo es ' + (LARGO - 1) + '.';
+    e.className = 'prev mal'; return;
+  }
+  e.textContent = f.pre + new Array(f.med + 1).join('•') + f.suf +
+                  '   (el cajero escribe ' + f.med + ')';
+  e.className = 'prev ok';
+}
+function aplicarFormatos(nuevos, texto){
+  d.patrones = nuevos;
+  guardar();
+  patron = buscarPatron(patron.id);
+  $('inCod').value = '';
+  pintarPatrones();
+  pintarFormatos();
+  aviso('aviFormatos', texto, 'ok');
+}
+function guardarFormatos(){
+  var nuevos = [], cambios = [], vistos = {};
+  for (var i = 0; i < d.patrones.length; i++){
+    var f = leerFormato(i), a = d.patrones[i];
+    if (f.med < 1){
+      aviso('aviFormatos', 'Botón ' + f.id + ': inicio y final no pueden sumar más de ' +
+            (LARGO - 1) + ' caracteres.');
+      return;
+    }
+    var k = f.pre + '|' + f.suf;
+    if (vistos[k]){
+      aviso('aviFormatos', 'Los botones ' + vistos[k] + ' y ' + f.id +
+            ' quedaron con el mismo inicio y final.');
+      return;
+    }
+    vistos[k] = f.id;
+    if (f.pre !== a.pre || f.suf !== a.suf)
+      cambios.push(f.id + ':  ' + a.pre + '…' + a.suf + '  →  ' + f.pre + '…' + f.suf);
+    nuevos.push({ id:f.id, pre:f.pre, suf:f.suf });
+  }
+  if (!cambios.length){ aviso('aviFormatos', 'No hay cambios que guardar.', 'war'); return; }
+  if (!confirm('Se cambiarán estos formatos:\n\n' + cambios.join('\n') +
+               '\n\n¿Guardar?')) return;
+  aplicarFormatos(nuevos, 'Formatos guardados.');
+}
+function formatosFabrica(){
+  var t = FABRICA.map(function(p){ return p.id + ':  ' + p.pre + '…' + p.suf; }).join('\n');
+  if (!confirm('Volver a los formatos de fábrica:\n\n' + t + '\n\n¿Continuar?')) return;
+  aplicarFormatos(JSON.parse(JSON.stringify(FABRICA)), 'Formatos de fábrica restaurados.');
+}
+
 function borrarLote(){
   var g = {};
   d.registros.forEach(function(r){ g[r.fecha+'|'+r.cajero] = (g[r.fecha+'|'+r.cajero]||0)+1; });
@@ -680,8 +779,7 @@ function cerrarModal(){ $('modal').className = 'modal'; }
 
 /* ---------- arranque ---------- */
 cargar();
-if (d.ultimoPatron)
-  patron = PATRONES.filter(function(p){ return p.id === d.ultimoPatron; })[0] || patron;
+patron = buscarPatron(d.ultimoPatron);
 pintarInicio();
 pintarPatrones();
 
@@ -718,7 +816,9 @@ $('inRest').addEventListener('change', function(){
       if (!nu.registros) throw new Error('El archivo no tiene registros.');
       if (!confirm('El respaldo tiene ' + nu.registros.length + ' registros.\n\n' +
                    'Reemplazará los ' + d.registros.length + ' actuales. ¿Continuar?')) return;
-      d = nu; guardar(); pintarAjustes(); pintarInicio();
+      d = nu; completar(); guardar();
+      patron = buscarPatron(d.ultimoPatron); pintarPatrones();
+      pintarAjustes(); pintarInicio();
       alert('Respaldo restaurado.');
     } catch(e){ alert('No se pudo leer el respaldo.\n\n' + e); }
   };
@@ -726,6 +826,11 @@ $('inRest').addEventListener('change', function(){
 });
 document.querySelector('[onclick="ver(\'vAjustes\')"]')
   .addEventListener('click', pintarAjustes);
+$('formatos').addEventListener('input', function(e){
+  var t = e.target, v = t.value.toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if (v !== t.value) t.value = v;
+  previoFormato(+t.getAttribute('data-i'));
+});
 $('modal').addEventListener('click', function(e){ if (e.target === this) cerrarModal(); });
 
 // expuestas al HTML
@@ -739,6 +844,7 @@ window.exportarTodo = exportarTodo; window.borrarLote = borrarLote;
 window.confirmarBorrarLote = confirmarBorrarLote; window.borrarTodo = borrarTodo;
 window.respaldar = respaldar; window.cerrarModal = cerrarModal;
 window.construirLibro = construirLibro;
+window.guardarFormatos = guardarFormatos; window.formatosFabrica = formatosFabrica;
 })();
 </script>
 <script>
