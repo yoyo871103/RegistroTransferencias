@@ -75,6 +75,8 @@
   .prev{font-family:var(--mono);font-size:15px;color:var(--soft);text-align:center;
     margin-top:6px;letter-spacing:.08em}
   .prev.ok{color:var(--green);font-weight:600}
+  .prev.mal{color:var(--stamp);font-weight:600}
+  input.ci{font-family:var(--mono);letter-spacing:.08em}
   .chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
   .chips button{width:auto;flex:none;padding:9px 15px;font-size:15px;font-family:var(--mono);
     background:var(--bar);color:var(--ink);border:1px solid var(--rule)}
@@ -156,6 +158,15 @@
     <input class="imp" id="inImp" inputmode="decimal" autocomplete="off"
            enterkeyhint="done" placeholder="0.00">
     <div class="chips" id="chips"></div>
+
+    <div class="sec">Cliente (opcional)</div>
+    <label>Nombre completo</label>
+    <input id="inNom" autocomplete="off" autocapitalize="words" spellcheck="false"
+           enterkeyhint="next" maxlength="80">
+    <label>Carnet de identidad</label>
+    <input class="ci" id="inCI" inputmode="numeric" autocomplete="off"
+           enterkeyhint="done" maxlength="11" placeholder="11 dígitos">
+    <div class="prev" id="prevCI">—</div>
 
     <div class="avi" id="aviCap"></div>
 
@@ -303,6 +314,29 @@ function deLote(f, c){
   return d.registros.filter(function(r){ return r.fecha===f && r.cajero===c; });
 }
 function suma(rs){ return rs.reduce(function(a,r){ return a + r.importe; }, 0); }
+function esc(t){
+  return String(t == null ? '' : t).replace(/[&<>"']/g, function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; });
+}
+function limpiarNombre(t){ return String(t || '').replace(/\s+/g,' ').trim(); }
+
+/* Carnet de identidad cubano: 11 dígitos AAMMDD + 5.
+   El 7.º dígito da el siglo: 9 → 1800, 0-5 → 1900, 6-8 → 2000.
+   Devuelve { ok, fecha:'DD/MM/AAAA' } o { ok:false, error:'...' }.
+   Vacío es válido: el campo es opcional. */
+function validarCI(ci){
+  if (!ci) return { ok:true, fecha:'' };
+  if (!/^\d{11}$/.test(ci))
+    return { ok:false, error:'El carnet debe tener 11 dígitos (tiene ' + ci.length + ').' };
+  var aa = +ci.slice(0,2), mm = +ci.slice(2,4), dd = +ci.slice(4,6), s = +ci[6];
+  var anio = (s === 9 ? 1800 : s <= 5 ? 1900 : 2000) + aa;
+  var f = new Date(anio, mm-1, dd);
+  if (mm < 1 || mm > 12 || f.getFullYear() !== anio || f.getMonth() !== mm-1 || f.getDate() !== dd)
+    return { ok:false, error:'Carnet no válido: ' + ci.slice(0,6) + ' no es una fecha (AAMMDD).' };
+  if (f > new Date())
+    return { ok:false, error:'Carnet no válido: la fecha de nacimiento es futura.' };
+  return { ok:true, fecha:p2(dd) + '/' + p2(mm) + '/' + anio };
+}
 
 /* ---------- inicio ---------- */
 function pintarInicio(){
@@ -369,8 +403,9 @@ function pintarCaptura(){
 
   var h = '';
   rs.slice().reverse().forEach(function(r){
+    var cli = [r.nombre, r.ci].filter(Boolean).map(esc).join(' · ');
     h += '<div class="reg"><div class="c">' + r.codigo +
-         '<div class="t">' + r.hora + '</div></div>' +
+         '<div class="t">' + r.hora + (cli ? ' · ' + cli : '') + '</div></div>' +
          '<div class="m">' + fmt(r.importe) + '</div>' +
          '<button class="ln mini" onclick="editar(\'' + r.id + '\')">Editar</button>' +
          '</div>';
@@ -411,6 +446,15 @@ function pintarPrevio(){
   e.className = 'prev' + (c.length === 13 ? ' ok' : '');
 }
 
+function pintarPrevioCI(){
+  var ci = $('inCI').value, e = $('prevCI');
+  if (!ci){ e.textContent = '—'; e.className = 'prev'; return; }
+  var v = validarCI(ci);
+  if (v.ok){ e.textContent = 'Nacido el ' + v.fecha; e.className = 'prev ok'; }
+  else if (ci.length < 11){ e.textContent = ci.length + ' de 11 dígitos'; e.className = 'prev'; }
+  else { e.textContent = v.error; e.className = 'prev mal'; }
+}
+
 function ponerImporte(v){ $('inImp').value = Number(v).toFixed(2); $('inImp').focus(); }
 
 function agregar(){
@@ -420,6 +464,10 @@ function agregar(){
   var imp = parseFloat(String($('inImp').value).replace(/[\s,]/g,''));
 
   if (!isFinite(imp) || imp <= 0){ aviso('aviCap','Importe no válido.'); $('inImp').focus(); return; }
+  var nom = limpiarNombre($('inNom').value);
+  var ci = $('inCI').value.trim();
+  var vci = validarCI(ci);
+  if (!vci.ok){ aviso('aviCap', vci.error); $('inCI').focus(); return; }
 
   // duplicado: el mismo código ya registrado en cualquier lote
   var dup = d.registros.filter(function(r){
@@ -436,14 +484,16 @@ function agregar(){
 
   if (editando){
     var r = d.registros.filter(function(x){ return x.id === editando; })[0];
-    if (r){ r.codigo = cod; r.importe = imp; }
+    if (r){ r.codigo = cod; r.importe = imp; r.nombre = nom; r.ci = ci; }
     editando = null;
   } else {
     d.registros.push({ id:'r'+Date.now()+Math.random().toString(36).slice(2,6),
-      fecha:lote.fecha, cajero:lote.cajero, codigo:cod, importe:imp, hora:ahora() });
+      fecha:lote.fecha, cajero:lote.cajero, codigo:cod, importe:imp, hora:ahora(),
+      nombre:nom, ci:ci });
   }
   guardar();
-  $('inCod').value = ''; $('inImp').value = ''; pintarPrevio();
+  $('inCod').value = ''; $('inImp').value = ''; $('inNom').value = ''; $('inCI').value = '';
+  pintarPrevio(); pintarPrevioCI();
   aviso('aviCap', 'Registrado: ' + cod + ' · ' + fmt(imp) + ' CUP', 'ok');
   pintarCaptura();
   $('inCod').focus();
@@ -456,6 +506,10 @@ function editar(id){
     '<label>No. de transacción</label><input class="cod" id="edCod" value="' + r.codigo + '">' +
     '<label>Importe</label><input class="imp" id="edImp" inputmode="decimal" value="' +
       r.importe.toFixed(2) + '">' +
+    '<label>Nombre del cliente (opcional)</label><input id="edNom" maxlength="80" ' +
+      'autocapitalize="words" value="' + esc(r.nombre) + '">' +
+    '<label>Carnet de identidad (opcional)</label><input class="ci" id="edCI" ' +
+      'inputmode="numeric" maxlength="11" value="' + esc(r.ci) + '">' +
     '<div class="fila" style="margin-top:18px">' +
     '<button class="gr" onclick="guardarEdicion(\'' + id + '\')">Guardar</button>' +
     '<button class="ln" onclick="cerrarModal()">Cancelar</button></div>' +
@@ -467,7 +521,10 @@ function guardarEdicion(id){
   var cod = $('edCod').value.trim().toUpperCase().replace(/\s+/g,'');
   var imp = parseFloat(String($('edImp').value).replace(/[\s,]/g,''));
   if (!cod || !isFinite(imp) || imp <= 0){ alert('Revisa el código y el importe.'); return; }
-  r.codigo = cod; r.importe = imp;
+  var ci = $('edCI').value.replace(/\D/g,'');
+  var vci = validarCI(ci);
+  if (!vci.ok){ alert(vci.error); return; }
+  r.codigo = cod; r.importe = imp; r.nombre = limpiarNombre($('edNom').value); r.ci = ci;
   guardar(); cerrarModal(); pintarCaptura();
 }
 function eliminar(id){
@@ -508,16 +565,18 @@ function quitarCajero(i){
 /* ---------- exportar ---------- */
 /* INICIO_EXPORT */
 function construirLibro(registros){
-  var filas = [['FECHA','IMPORTE','NO TRANSACCION','HORA','CAJERO']];
+  var filas = [['FECHA','IMPORTE','NO TRANSACCION','HORA','CAJERO','CLIENTE','CI']];
   registros.slice().sort(function(a,b){
     return (a.fecha+a.hora).localeCompare(b.fecha+b.hora);
   }).forEach(function(r){
     var p = r.fecha.split('-');
-    filas.push([new Date(+p[0], +p[1]-1, +p[2]), r.importe, r.codigo, r.hora, r.cajero]);
+    // el CI va como texto para no perder el 0 inicial
+    filas.push([new Date(+p[0], +p[1]-1, +p[2]), r.importe, r.codigo, r.hora, r.cajero,
+                r.nombre || '', r.ci || '']);
   });
   var wb = XLSX.utils.book_new();
   var ws = XLSX.utils.aoa_to_sheet(filas, { cellDates:true });
-  ws['!cols'] = [{wch:12},{wch:13},{wch:17},{wch:8},{wch:20}];
+  ws['!cols'] = [{wch:12},{wch:13},{wch:17},{wch:8},{wch:20},{wch:30},{wch:13}];
   XLSX.utils.book_append_sheet(wb, ws, 'TRANSFERENCIAS');
   return wb;
 }
@@ -637,6 +696,17 @@ $('inCod').addEventListener('keydown', function(e){
   if (e.key === 'Enter'){ e.preventDefault(); $('inImp').focus(); }
 });
 $('inImp').addEventListener('keydown', function(e){
+  if (e.key === 'Enter'){ e.preventDefault(); agregar(); }
+});
+$('inNom').addEventListener('keydown', function(e){
+  if (e.key === 'Enter'){ e.preventDefault(); $('inCI').focus(); }
+});
+$('inCI').addEventListener('input', function(){
+  var v = this.value.replace(/\D/g,'');
+  if (v !== this.value) this.value = v;
+  pintarPrevioCI();
+});
+$('inCI').addEventListener('keydown', function(e){
   if (e.key === 'Enter'){ e.preventDefault(); agregar(); }
 });
 $('inRest').addEventListener('change', function(){

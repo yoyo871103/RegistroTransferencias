@@ -1,7 +1,7 @@
 /* Service worker: guarda la app para que funcione sin internet.
    Al publicar una versión nueva hay que subir VERSION; si no, la tablet
    seguirá usando la copia vieja que tiene guardada. */
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = 'transferencias-' + VERSION;
 const ARCHIVOS = [
   './', './index.html', './manifest.webmanifest',
