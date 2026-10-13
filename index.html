@@ -104,6 +104,8 @@
     max-height:88vh;overflow-y:auto}
   .caja h3{margin:0 0 4px;font-size:19px}
   .caja p{margin:0 0 12px;color:var(--soft);font-size:14.5px}
+  .pasos{margin:0;padding-left:22px;font-size:15px;line-height:1.45}
+  .pasos li{margin-bottom:7px}
 </style>
 </head>
 <body>
@@ -115,6 +117,7 @@
     <div class="h2" id="marcaInicio">VT SOFTWARE</div>
   </header>
   <div class="cuerpo">
+    <div id="alertas"></div>
     <label>Fecha del lote</label>
     <input type="date" id="inFecha">
     <label>Cajero</label>
@@ -309,15 +312,53 @@ function buscarPatron(id){
   var ps = patrones();
   return ps.filter(function(p){ return p.id === id; })[0] || ps[0];
 }
+/* Si no se puede guardar, se deshace el último cambio volviendo a lo que hay
+   en la tablet: así nunca se muestra como guardado algo que se perdería al
+   cerrar la app. Quien llama debe mirar el resultado. */
 function guardar(){
   try {
     localStorage.setItem(CLAVE, JSON.stringify(d));
     return true;
   } catch(e){
-    alert('No se pudieron guardar los datos en la tablet.\n\n' +
-          'Exporta a Excel ahora mismo para no perder el trabajo.\n\n' + e);
+    var llena = e && (e.name === 'QuotaExceededError' || e.code === 22);
+    alert('NO SE GUARDÓ el último cambio.\n\n' +
+          (llena ? 'La memoria de la app está llena. Exporta a Excel los lotes viejos y ' +
+                   'bórralos en Ajustes para liberar espacio.'
+                 : 'La tablet no permitió guardar.\n\n' + e));
+    cargar();
     return false;
   }
+}
+
+// último cajero o formato elegido: si no cabe no pasa nada, no merece alerta
+function guardarPreferencia(){
+  try { localStorage.setItem(CLAVE, JSON.stringify(d)); } catch(e){}
+}
+
+/* Chrome deja unos 5 MB por app (medido: 5 242 880 caracteres).
+   Un registro con todos los datos del cliente ocupa ~210. */
+var CUPO = 5 * 1024 * 1024;
+var POR_REGISTRO = 210;
+function memoria(){
+  var t = '';
+  try { t = localStorage.getItem(CLAVE) || ''; } catch(e){}
+  var usado = CLAVE.length + t.length;
+  return { pct: Math.min(100, Math.round(usado * 100 / CUPO)),
+           quedan: Math.max(0, Math.floor((CUPO - usado) / POR_REGISTRO)) };
+}
+
+// pide a Chrome que no borre los datos si la tablet se queda sin espacio
+var protegido = null;   // null = el navegador no lo permite
+function proteger(){
+  if (!navigator.storage || !navigator.storage.persist) return;
+  navigator.storage.persisted()
+    .then(function(p){ return p || navigator.storage.persist(); })
+    .then(function(p){ protegido = p; })
+    .catch(function(){});
+}
+function diasSinCopia(){
+  if (!d.ultimaCopia) return null;
+  return Math.floor((new Date(hoy()) - new Date(d.ultimaCopia)) / 864e5);
 }
 
 /* ---------- utilidades ---------- */
@@ -330,6 +371,7 @@ function p2(n){ return (n<10?'0':'') + n; }
 function ahora(){ var f = new Date(); return p2(f.getHours()) + ':' + p2(f.getMinutes()); }
 function fmt(n){ return Number(n).toLocaleString('es-CU',{minimumFractionDigits:2,
                                                          maximumFractionDigits:2}); }
+function entero(n){ return Number(n).toLocaleString('es-CU'); }
 function fechaLarga(iso){
   var p = iso.split('-'); return p[2] + '/' + p[1] + '/' + p[0];
 }
@@ -390,7 +432,25 @@ function validarTel(t){
 }
 
 /* ---------- inicio ---------- */
+function pintarAlertas(){
+  var h = '', mem = memoria(), dias = diasSinCopia();
+  if (mem.pct >= 95)
+    h += '<div class="avi err on">Memoria casi llena (' + mem.pct + ' %). Exporta a Excel ' +
+         'y borra lotes viejos en Ajustes, o pronto no se podrá registrar nada.</div>';
+  else if (mem.pct >= 80)
+    h += '<div class="avi war on">Memoria al ' + mem.pct + ' % (caben ≈ ' + entero(mem.quedan) +
+         ' registros más). Exporta y borra lotes viejos pronto.</div>';
+  if (d.registros.length && (dias === null || dias >= 7))
+    h += '<div class="avi war on">' +
+         (dias === null ? 'Nunca se ha guardado una copia de seguridad.'
+                        : 'Hace ' + dias + ' días de la última copia de seguridad.') +
+         '<div style="margin-top:8px"><button class="ln mini" onclick="respaldar()">' +
+         'Guardar copia ahora</button></div></div>';
+  $('alertas').innerHTML = h;
+}
+
 function pintarInicio(){
+  pintarAlertas();
   var s = $('inCajero'); s.innerHTML = '';
   d.cajeros.forEach(function(c){
     var o = document.createElement('option'); o.value = c; o.textContent = c; s.appendChild(o);
@@ -423,7 +483,7 @@ function abrirLote(){
   if (!f){ aviso('aviInicio','Elige la fecha del lote.'); return; }
   if (!c){ aviso('aviInicio','Elige el cajero.'); return; }
   aviso('aviInicio','');
-  d.ultimoCajero = c; guardar();
+  d.ultimoCajero = c; guardarPreferencia();
   entrar(f, c);
 }
 function retomar(f, c){ entrar(f, c); }
@@ -481,7 +541,7 @@ function pintarPatrones(){
 }
 function ponerPatron(id){
   patron = buscarPatron(id);
-  d.ultimoPatron = id; guardar();
+  d.ultimoPatron = id; guardarPreferencia();
   $('inCod').value = '';
   pintarPatrones();
   $('inCod').focus();
@@ -553,7 +613,13 @@ function agregar(){
       fecha:lote.fecha, cajero:lote.cajero, codigo:cod, importe:imp, hora:ahora(),
       nombre:nom, ci:ci, telefono:tel });
   }
-  guardar();
+  if (!guardar()){
+    // se deja lo tecleado para reintentar después de liberar espacio
+    aviso('aviCap', 'NO se guardó ' + cod + '. La memoria está llena: exporta y borra ' +
+                    'lotes viejos en Ajustes.');
+    pintarCaptura();
+    return;
+  }
   $('inCod').value = ''; $('inImp').value = ''; $('inNom').value = ''; $('inCI').value = '';
   $('inTel').value = '';
   pintarPrevio(); pintarPrevioCI(); pintarPrevioTel();
@@ -594,7 +660,7 @@ function guardarEdicion(id){
   if (!vtel.ok){ alert(vtel.error); return; }
   r.codigo = cod; r.importe = imp; r.nombre = limpiarNombre($('edNom').value); r.ci = ci;
   r.telefono = vtel.valor;
-  guardar(); cerrarModal(); pintarCaptura();
+  guardar(); cerrarModal(); pintarCaptura();   // si falla, guardar() ya avisó y deshizo
 }
 function eliminar(id){
   var r = d.registros.filter(function(x){ return x.id === id; })[0];
@@ -658,7 +724,24 @@ function descargar(registros, nombre){
                    { bookType:'xlsx', cellDates:true });
   } catch(e){
     alert('No se pudo generar el Excel.\n\n' + e);
+    return;
   }
+  guiaCompartir(nombre);
+}
+/* Chrome no deja compartir .xlsx directo desde una página web (solo PDF, CSV,
+   imágenes…), así que se descarga y se explica cómo enviarlo desde Archivos. */
+function guiaCompartir(nombre){
+  modal('<h3>Excel guardado</h3>' +
+    '<p>Se guardó <b>' + esc(nombre) + '</b> en la carpeta <b>Descargas</b> de la tablet.</p>' +
+    '<div class="sec">Para enviarlo por WhatsApp, Zapya u otra app</div>' +
+    '<ol class="pasos">' +
+    '<li>Abre la app <b>Archivos</b> (en algunas tablets se llama <b>Mis archivos</b>).</li>' +
+    '<li>Entra en <b>Descargas</b>.</li>' +
+    '<li>Mantén pulsado <b>' + esc(nombre) + '</b>. Si ya había uno con ese nombre, ' +
+      'el nuevo termina en (1), (2)…</li>' +
+    '<li>Toca <b>Compartir</b> y elige WhatsApp, Zapya u otra app.</li>' +
+    '</ol>' +
+    '<div style="margin-top:16px"><button class="gr" onclick="cerrarModal()">Entendido</button></div>');
 }
 function exportarLoteActual(){
   var rs = deLote(lote.fecha, lote.cajero);
@@ -693,13 +776,20 @@ function exportarTodo(){ descargar(d.registros, 'TRANSFERENCIAS_TODO.xlsx'); }
 
 /* ---------- ajustes ---------- */
 function pintarAjustes(){
-  var f = {};
+  var f = {}, mem = memoria();
   d.registros.forEach(function(r){ f[r.fecha+'|'+r.cajero] = 1; });
   $('infoDatos').innerHTML =
     'Registros: <b>' + d.registros.length + '</b><br>' +
     'Lotes: <b>' + Object.keys(f).length + '</b><br>' +
     'Cajeros: <b>' + d.cajeros.length + '</b><br>' +
-    'Total: <b>' + fmt(suma(d.registros)) + ' CUP</b>';
+    'Total: <b>' + fmt(suma(d.registros)) + ' CUP</b><br>' +
+    'Memoria usada: <b>' + mem.pct + ' %</b> (caben ≈ ' + entero(mem.quedan) +
+      ' registros más)<br>' +
+    'Protección contra borrado: <b>' +
+      (protegido === true ? 'activa' :
+       protegido === false ? 'no concedida (instala la app para obtenerla)' : 'no disponible') +
+      '</b><br>' +
+    'Última copia: <b>' + (d.ultimaCopia ? fechaLarga(d.ultimaCopia) : 'nunca') + '</b>';
   pintarFormatos();
 }
 function pintarFormatos(){
@@ -734,7 +824,7 @@ function previoFormato(i){
 }
 function aplicarFormatos(nuevos, texto){
   d.patrones = nuevos;
-  guardar();
+  if (!guardar()){ pintarFormatos(); aviso('aviFormatos', 'NO se guardaron los formatos.'); return; }
   patron = buscarPatron(patron.id);
   $('inCod').value = '';
   pintarPatrones();
@@ -807,11 +897,14 @@ function borrarTodo(){
   alert('Registros borrados.');
 }
 function respaldar(){
+  d.ultimaCopia = hoy();
   var t = JSON.stringify(d);
   var a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([t], {type:'application/json'}));
   a.download = 'respaldo_transferencias_' + hoy() + '.json';
   a.click();
+  guardar();
+  pintarInicio(); pintarAjustes();
 }
 
 /* ---------- modal ---------- */
@@ -820,6 +913,7 @@ function cerrarModal(){ $('modal').className = 'modal'; }
 
 /* ---------- arranque ---------- */
 cargar();
+proteger();
 patron = buscarPatron(d.ultimoPatron);
 pintarInicio();
 pintarPatrones();
@@ -867,7 +961,8 @@ $('inRest').addEventListener('change', function(){
       if (!nu.registros) throw new Error('El archivo no tiene registros.');
       if (!confirm('El respaldo tiene ' + nu.registros.length + ' registros.\n\n' +
                    'Reemplazará los ' + d.registros.length + ' actuales. ¿Continuar?')) return;
-      d = nu; completar(); guardar();
+      d = nu; completar();
+      if (!guardar()) return;
       patron = buscarPatron(d.ultimoPatron); pintarPatrones();
       pintarAjustes(); pintarInicio();
       alert('Respaldo restaurado.');

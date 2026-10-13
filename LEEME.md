@@ -134,3 +134,27 @@ transacción**, corrige el inicio o el final y toca **Guardar formatos**.
 - Los registros ya guardados no se modifican.
 - Los formatos se guardan en la tablet y entran en la copia de seguridad.
 - **Valores de fábrica** vuelve a `KW601…999`, `BR60…997` y `MM604…987`.
+
+---
+
+## Memoria de la app
+
+Chrome deja unos 5 MB por app: caben **~25 000 registros** con todos los datos
+del cliente (~32 000 sin ellos). Para que no sea un problema:
+
+- **Ajustes** muestra la memoria usada, si los datos están protegidos contra el
+  borrado automático y la fecha de la última copia de seguridad.
+- La pantalla de inicio avisa en **amarillo al 80 %** y en **rojo al 95 %**.
+  Entonces hay que exportar a Excel los lotes viejos y borrarlos en Ajustes.
+- Si la memoria se llena, el registro **no se guarda** y la app lo dice en
+  rojo; lo tecleado se conserva para reintentar después de liberar espacio.
+- Si pasan 7 días sin **Guardar copia**, la pantalla de inicio lo recuerda.
+- Al abrir, la app pide a Chrome que no borre sus datos aunque la tablet se
+  quede sin espacio. Chrome suele concederlo solo si la app está **instalada**.
+
+## Enviar el Excel por WhatsApp, Zapya, etc.
+
+Chrome no permite compartir archivos `.xlsx` directamente desde una página web
+(solo PDF, CSV, imágenes y similares). Por eso, al exportar, el Excel se guarda
+en **Descargas** y la app muestra los pasos: abrir **Archivos** → **Descargas**
+→ mantener pulsado el archivo → **Compartir** → WhatsApp, Zapya u otra app.
