@@ -398,21 +398,25 @@ function esc(t){
 function limpiarNombre(t){ return String(t || '').replace(/\s+/g,' ').trim(); }
 
 /* Carnet de identidad cubano: 11 dígitos AAMMDD + 5.
-   El 7.º dígito da el siglo: 9 → 1800, 0-5 → 1900, 6-8 → 2000.
+   El siglo se deduce de la fecha: 20AA si ya pasó, si no 19AA
+   (871101… → 1987, 050101… → 2005). El 7.º dígito no sirve para esto:
+   carnets reales de los 80 lo tienen entre 6 y 8.
    Devuelve { ok, fecha:'DD/MM/AAAA' } o { ok:false, error:'...' }.
    Vacío es válido: el campo es opcional. */
+function fechaReal(a, m, d){
+  var f = new Date(a, m-1, d);
+  return f.getFullYear() === a && f.getMonth() === m-1 && f.getDate() === d ? f : null;
+}
 function validarCI(ci){
   if (!ci) return { ok:true, fecha:'' };
   if (!/^\d{11}$/.test(ci))
     return { ok:false, error:'El carnet debe tener 11 dígitos (tiene ' + ci.length + ').' };
-  var aa = +ci.slice(0,2), mm = +ci.slice(2,4), dd = +ci.slice(4,6), s = +ci[6];
-  var anio = (s === 9 ? 1800 : s <= 5 ? 1900 : 2000) + aa;
-  var f = new Date(anio, mm-1, dd);
-  if (mm < 1 || mm > 12 || f.getFullYear() !== anio || f.getMonth() !== mm-1 || f.getDate() !== dd)
+  var aa = +ci.slice(0,2), mm = +ci.slice(2,4), dd = +ci.slice(4,6);
+  var f = fechaReal(2000 + aa, mm, dd);
+  if (!f || f > new Date()) f = fechaReal(1900 + aa, mm, dd);
+  if (!f)
     return { ok:false, error:'Carnet no válido: ' + ci.slice(0,6) + ' no es una fecha (AAMMDD).' };
-  if (f > new Date())
-    return { ok:false, error:'Carnet no válido: la fecha de nacimiento es futura.' };
-  return { ok:true, fecha:p2(dd) + '/' + p2(mm) + '/' + anio };
+  return { ok:true, fecha:p2(dd) + '/' + p2(mm) + '/' + f.getFullYear() };
 }
 
 /* Teléfono cubano: +53 y 8 dígitos, guardado como '+53 5555 1803'.
