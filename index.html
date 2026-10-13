@@ -58,7 +58,8 @@
     border:1px solid var(--rule);border-radius:8px;margin-bottom:7px}
   .reg .c{font-family:var(--mono);font-size:16px;flex:1;word-break:break-all}
   .reg .m{font-family:var(--mono);font-size:17px;font-weight:600;white-space:nowrap}
-  .reg .t{font-size:11px;color:var(--soft);font-family:var(--mono)}
+  .reg .t{font-size:11px;color:var(--soft);font-family:var(--mono);word-break:normal}
+  .reg .t span{white-space:nowrap}
   .reg.dup{border-color:var(--stamp);background:#FBF0EE}
   .mini{padding:9px 13px;font-size:14px;width:auto;flex:none}
 
@@ -165,8 +166,14 @@
            enterkeyhint="next" maxlength="80">
     <label>Carnet de identidad</label>
     <input class="ci" id="inCI" inputmode="numeric" autocomplete="off"
-           enterkeyhint="done" maxlength="11" placeholder="11 dígitos">
+           enterkeyhint="next" maxlength="11" placeholder="11 dígitos">
     <div class="prev" id="prevCI">—</div>
+    <label>Teléfono</label>
+    <div class="armado">
+      <span class="fijo">+53</span><input class="ci" id="inTel" inputmode="numeric"
+        autocomplete="off" enterkeyhint="done" maxlength="14" placeholder="5555 1803">
+    </div>
+    <div class="prev" id="prevTel">—</div>
 
     <div class="avi" id="aviCap"></div>
 
@@ -366,6 +373,22 @@ function validarCI(ci){
   return { ok:true, fecha:p2(dd) + '/' + p2(mm) + '/' + anio };
 }
 
+/* Teléfono cubano: +53 y 8 dígitos, guardado como '+53 5555 1803'.
+   Acepta que se escriba o pegue con el +53 delante. */
+function digitosTel(t){
+  var n = String(t || '').replace(/\D/g,'');
+  if (n.length > 8 && n.slice(0,2) === '53') n = n.slice(2);
+  return n;
+}
+function validarTel(t){
+  var n = digitosTel(t);
+  if (!n) return { ok:true, valor:'' };
+  if (n.length !== 8)
+    return { ok:false, error:'El teléfono debe tener 8 dígitos después del +53 (tiene ' +
+                             n.length + ').' };
+  return { ok:true, valor:'+53 ' + n.slice(0,4) + ' ' + n.slice(4) };
+}
+
 /* ---------- inicio ---------- */
 function pintarInicio(){
   var s = $('inCajero'); s.innerHTML = '';
@@ -431,7 +454,8 @@ function pintarCaptura(){
 
   var h = '';
   rs.slice().reverse().forEach(function(r){
-    var cli = [r.nombre, r.ci].filter(Boolean).map(esc).join(' · ');
+    var cli = [r.nombre, r.ci, r.telefono].filter(Boolean).map(function(x){
+      return '<span>' + esc(x) + '</span>'; }).join(' · ');
     h += '<div class="reg"><div class="c">' + r.codigo +
          '<div class="t">' + r.hora + (cli ? ' · ' + cli : '') + '</div></div>' +
          '<div class="m">' + fmt(r.importe) + '</div>' +
@@ -482,6 +506,13 @@ function pintarPrevioCI(){
   else if (ci.length < 11){ e.textContent = ci.length + ' de 11 dígitos'; e.className = 'prev'; }
   else { e.textContent = v.error; e.className = 'prev mal'; }
 }
+function pintarPrevioTel(){
+  var n = digitosTel($('inTel').value), e = $('prevTel');
+  if (!n){ e.textContent = '—'; e.className = 'prev'; return; }
+  var v = validarTel(n);
+  if (v.ok){ e.textContent = v.valor; e.className = 'prev ok'; }
+  else { e.textContent = n.length + ' de 8 dígitos'; e.className = 'prev'; }
+}
 
 function ponerImporte(v){ $('inImp').value = Number(v).toFixed(2); $('inImp').focus(); }
 
@@ -496,6 +527,9 @@ function agregar(){
   var ci = $('inCI').value.trim();
   var vci = validarCI(ci);
   if (!vci.ok){ aviso('aviCap', vci.error); $('inCI').focus(); return; }
+  var vtel = validarTel($('inTel').value);
+  if (!vtel.ok){ aviso('aviCap', vtel.error); $('inTel').focus(); return; }
+  var tel = vtel.valor;
 
   // duplicado: el mismo código ya registrado en cualquier lote
   var dup = d.registros.filter(function(r){
@@ -512,16 +546,17 @@ function agregar(){
 
   if (editando){
     var r = d.registros.filter(function(x){ return x.id === editando; })[0];
-    if (r){ r.codigo = cod; r.importe = imp; r.nombre = nom; r.ci = ci; }
+    if (r){ r.codigo = cod; r.importe = imp; r.nombre = nom; r.ci = ci; r.telefono = tel; }
     editando = null;
   } else {
     d.registros.push({ id:'r'+Date.now()+Math.random().toString(36).slice(2,6),
       fecha:lote.fecha, cajero:lote.cajero, codigo:cod, importe:imp, hora:ahora(),
-      nombre:nom, ci:ci });
+      nombre:nom, ci:ci, telefono:tel });
   }
   guardar();
   $('inCod').value = ''; $('inImp').value = ''; $('inNom').value = ''; $('inCI').value = '';
-  pintarPrevio(); pintarPrevioCI();
+  $('inTel').value = '';
+  pintarPrevio(); pintarPrevioCI(); pintarPrevioTel();
   aviso('aviCap', 'Registrado: ' + cod + ' · ' + fmt(imp) + ' CUP', 'ok');
   pintarCaptura();
   $('inCod').focus();
@@ -538,6 +573,9 @@ function editar(id){
       'autocapitalize="words" value="' + esc(r.nombre) + '">' +
     '<label>Carnet de identidad (opcional)</label><input class="ci" id="edCI" ' +
       'inputmode="numeric" maxlength="11" value="' + esc(r.ci) + '">' +
+    '<label>Teléfono (opcional)</label><input class="ci" id="edTel" ' +
+      'inputmode="numeric" maxlength="16" placeholder="+53 5555 1803" value="' +
+      esc(r.telefono) + '">' +
     '<div class="fila" style="margin-top:18px">' +
     '<button class="gr" onclick="guardarEdicion(\'' + id + '\')">Guardar</button>' +
     '<button class="ln" onclick="cerrarModal()">Cancelar</button></div>' +
@@ -552,7 +590,10 @@ function guardarEdicion(id){
   var ci = $('edCI').value.replace(/\D/g,'');
   var vci = validarCI(ci);
   if (!vci.ok){ alert(vci.error); return; }
+  var vtel = validarTel($('edTel').value);
+  if (!vtel.ok){ alert(vtel.error); return; }
   r.codigo = cod; r.importe = imp; r.nombre = limpiarNombre($('edNom').value); r.ci = ci;
+  r.telefono = vtel.valor;
   guardar(); cerrarModal(); pintarCaptura();
 }
 function eliminar(id){
@@ -593,18 +634,18 @@ function quitarCajero(i){
 /* ---------- exportar ---------- */
 /* INICIO_EXPORT */
 function construirLibro(registros){
-  var filas = [['FECHA','IMPORTE','NO TRANSACCION','HORA','CAJERO','CLIENTE','CI']];
+  var filas = [['FECHA','IMPORTE','NO TRANSACCION','HORA','CAJERO','CLIENTE','CI','TELEFONO']];
   registros.slice().sort(function(a,b){
     return (a.fecha+a.hora).localeCompare(b.fecha+b.hora);
   }).forEach(function(r){
     var p = r.fecha.split('-');
     // el CI va como texto para no perder el 0 inicial
     filas.push([new Date(+p[0], +p[1]-1, +p[2]), r.importe, r.codigo, r.hora, r.cajero,
-                r.nombre || '', r.ci || '']);
+                r.nombre || '', r.ci || '', r.telefono || '']);
   });
   var wb = XLSX.utils.book_new();
   var ws = XLSX.utils.aoa_to_sheet(filas, { cellDates:true });
-  ws['!cols'] = [{wch:12},{wch:13},{wch:17},{wch:8},{wch:20},{wch:30},{wch:13}];
+  ws['!cols'] = [{wch:12},{wch:13},{wch:17},{wch:8},{wch:20},{wch:30},{wch:13},{wch:16}];
   XLSX.utils.book_append_sheet(wb, ws, 'TRANSFERENCIAS');
   return wb;
 }
@@ -805,6 +846,16 @@ $('inCI').addEventListener('input', function(){
   pintarPrevioCI();
 });
 $('inCI').addEventListener('keydown', function(e){
+  if (e.key === 'Enter'){ e.preventDefault(); $('inTel').focus(); }
+});
+// deja solo 8 dígitos agrupados 4-4; si pegan '+53 …' se quita el 53
+$('inTel').addEventListener('input', function(){
+  var n = digitosTel(this.value).slice(0,8);
+  var v = n.length > 4 ? n.slice(0,4) + ' ' + n.slice(4) : n;
+  if (v !== this.value) this.value = v;
+  pintarPrevioTel();
+});
+$('inTel').addEventListener('keydown', function(e){
   if (e.key === 'Enter'){ e.preventDefault(); agregar(); }
 });
 $('inRest').addEventListener('change', function(){
