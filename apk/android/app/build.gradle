@@ -1,6 +1,19 @@
 apply plugin: 'com.android.application'
 
+// Secreto de las licencias (apk/licencia.secreto, fuera del repositorio).
+// Se crea una sola vez con "node licencia.js"; ver apk/LEEME.md.
+def archivoSecreto = rootProject.file('../licencia.secreto')
+if (!archivoSecreto.exists()) {
+    throw new GradleException('Falta apk/licencia.secreto. Si es la primera vez, ejecuta "node licencia.js" ' +
+        'en la carpeta apk. Si ya hay licencias entregadas, copia ese archivo desde tu copia de seguridad: ' +
+        'con un secreto nuevo las licencias anteriores no sirven en este APK.')
+}
+def secretoLicencias = archivoSecreto.text.trim()
+
 android {
+    buildFeatures {
+        buildConfig = true
+    }
     namespace = "com.vtsoftware.transferencias"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
@@ -9,6 +22,7 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
+        buildConfigField "String", "LICENCIA_SECRETO", "\"${secretoLicencias}\""
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

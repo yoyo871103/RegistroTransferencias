@@ -3,7 +3,7 @@
 Es la **misma app** que la PWA (el `index.html` de la raíz), metida en un APK
 con Capacitor, más dos cosas que una página web no puede hacer:
 
-- **Leer los SMS de PAGOxMOVIL.** Cuando llega uno con una transferencia,
+- **Leer los SMS de PAGOxMOVIL y ENZONA.** Cuando llega uno con un pago,
   aunque la app esté cerrada, sale una notificación. En la pantalla de captura
   aparece la lista **Por registrar (SMS)**:
   - **Registrar** pone en el formulario el No. de transacción, el importe y el
@@ -29,7 +29,49 @@ El titular del telefono 53XXXXXXXX le ha realizado una transferencia a la cuenta
 XXXXXXXXXXXXXXXX de 10000.00 CUP. Nro. Transaccion KW601YFBRP999. Fecha: 15/10/2026.
 ```
 
+También se leen los pagos de **ENZONA** (remitente `ENZONA`):
+
+```
+ENZONA pago recibido, Importe: 10.00 CUP No.: Xn24kbc2NDFV
+```
+
+Su número lleva mayúsculas y minúsculas y se guarda y exporta **tal cual**
+(al comparar si ya está registrado no se distinguen). Los "códigos de acceso"
+que manda ENZONA se ignoran.
+
 La PWA no cambia: al no estar dentro del APK, todo esto queda apagado.
+
+## Licencia por tablet
+
+Sin licencia, el APK solo muestra la pantalla **Activar la app** y no lee los
+SMS. La licencia sirve para una sola tablet.
+
+**Para activar una tablet:**
+
+1. El cliente abre la app y te envía el **código de esta tablet**
+   (botón *Enviar*, p. ej. por WhatsApp). Ejemplo: `E4W5N-7PM6Y`.
+2. Tú abres `apk/generador-licencias.html` en tu PC, pegas el código y copias la
+   licencia (`XXXX-XXXX-XXXX`). También por consola: `node licencia.js E4W5N-7PM6Y`.
+3. El cliente la escribe en la app y toca **Activar**.
+
+**El secreto** (`apk/licencia.secreto`) se creó una sola vez con
+`node licencia.js`; el APK lo lleva dentro al compilar y el generador también.
+**No va a GitHub** (el repositorio es público) y `generador-licencias.html`
+tampoco: no lo compartas, con él cualquiera fabrica licencias.
+**Guarda `licencia.secreto` con copia, junto a la clave de firma.** Si se
+pierde, las tablets ya activadas siguen funcionando, pero para activar otras
+habría que crear un secreto nuevo y repartir un APK nuevo.
+
+Cuándo cambia el código de una tablet (y hay que darle otra licencia):
+
+- si se restablece de fábrica;
+- si se instala un APK firmado con **otra** clave (por eso las licencias que
+  des para el APK de pruebas no sirven para el APK firmado de entrega).
+
+Desinstalar y volver a instalar el mismo APK firmado **no** cambia el código.
+
+Es un freno para que no se pase el APK entre clientes, no una cerradura
+imposible: alguien con conocimientos puede descompilar un APK.
 
 ## Dónde guarda los datos
 

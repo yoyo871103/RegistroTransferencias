@@ -11,3 +11,7 @@ keystore.properties
 
 # APK generados para probar o entregar
 *.apk
+
+# licencias: el secreto y el generador que lo lleva dentro NUNCA van al repositorio
+licencia.secreto
+generador-licencias.html

@@ -8,6 +8,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         // los plugins propios se registran antes de crear el puente
+        registerPlugin(LicenciaPlugin.class);
         registerPlugin(AlmacenPlugin.class);
         registerPlugin(SmsPlugin.class);
         super.onCreate(savedInstanceState);

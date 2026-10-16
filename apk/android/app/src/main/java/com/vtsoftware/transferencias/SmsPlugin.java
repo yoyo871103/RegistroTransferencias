@@ -122,6 +122,10 @@ public class SmsPlugin extends Plugin {
 
     @PluginMethod
     public void leerDesde(PluginCall call) {
+        if (!LicenciaPlugin.activa(getContext())) {
+            call.reject("La app no tiene licencia", "SIN_LICENCIA");
+            return;
+        }
         if (getPermissionState("sms") != PermissionState.GRANTED) {
             call.reject("Sin permiso para leer SMS", "SIN_PERMISO");
             return;

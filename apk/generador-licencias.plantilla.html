@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generador de licencias</title>
+<!-- Plantilla. "node licencia.js" crea generador-licencias.html con el secreto
+     dentro. Ese archivo NO se comparte ni va a GitHub. -->
+<style>
+  :root{--g50:#f8fafc;--g200:#e2e8f0;--g300:#cbd5e1;--g500:#64748b;--g800:#1e293b;
+        --p50:#eef2ff;--p200:#c7d2fe;--p600:#4f46e5;--err:#e52e00}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--g50);color:var(--g800);font:14px/1.45 Inter,system-ui,Segoe UI,Roboto,sans-serif;
+       display:flex;justify-content:center;padding:32px 16px}
+  main{background:#fff;border-radius:12px;padding:22px;width:100%;max-width:420px;
+       box-shadow:rgba(145,158,171,.2) 0 0 2px 0,rgba(145,158,171,.12) 0 12px 24px -4px}
+  h1{font-size:17px;margin:0 0 4px} p{color:var(--g500);margin:0 0 16px;font-size:13px}
+  label{display:block;font-size:13px;font-weight:500;margin:0 0 4px}
+  input{width:100%;height:40px;padding:0 12px;border:1px solid var(--g300);border-radius:8px;
+        font:16px ui-monospace,Consolas,monospace;letter-spacing:.08em;text-transform:uppercase}
+  input:focus{outline:none;border-color:var(--p600);box-shadow:0 0 0 3px rgb(99 102 241/.15)}
+  .lic{margin-top:16px;padding:14px;border:1px solid var(--p200);background:var(--p50);border-radius:8px;
+       display:none;align-items:center;gap:10px}
+  .lic.on{display:flex}
+  .lic b{flex:1;font:20px ui-monospace,Consolas,monospace;letter-spacing:.08em}
+  button{height:36px;padding:0 14px;border:0;border-radius:8px;background:var(--p600);color:#fff;font-weight:500;cursor:pointer}
+  .err{color:var(--err);font-size:13px;margin-top:8px;min-height:18px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Generador de licencias</h1>
+  <p>Pega el "código de esta tablet" que muestra la app y envía la licencia al cliente.</p>
+  <label for="codigo">Código de la tablet</label>
+  <input id="codigo" autocomplete="off" placeholder="K7M2Q-9XH4T" autofocus>
+  <div class="err" id="err"></div>
+  <div class="lic" id="lic"><b id="valor"></b><button id="copiar">Copiar</button></div>
+</main>
+<script>
+// Mismo cálculo que licencia.js y Licencia.java
+const SECRETO = '__SECRETO__';
+const ALFABETO = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+function base32(bytes, largo){
+  let bits = 0, valor = 0, out = '';
+  for (const b of bytes){
+    valor = (valor << 8) | b; bits += 8;
+    while (bits >= 5 && out.length < largo){ out += ALFABETO[(valor >>> (bits - 5)) & 31]; bits -= 5; }
+    valor &= (1 << bits) - 1;
+    if (out.length >= largo) break;
+  }
+  return out;
+}
+function normalizar(t){
+  return String(t || '').toUpperCase().replace(/O/g, '0').replace(/[IL]/g, '1').replace(/[^0-9A-Z]/g, '');
+}
+async function licenciaPara(codigo){
+  const clave = await crypto.subtle.importKey('raw', new Uint8Array(SECRETO.match(/../g).map(h => parseInt(h, 16))),
+    { name:'HMAC', hash:'SHA-256' }, false, ['sign']);
+  const firma = new Uint8Array(await crypto.subtle.sign('HMAC', clave, new TextEncoder().encode('RT-LIC|' + codigo)));
+  return base32(firma, 12).match(/.{4}/g).join('-');
+}
+const $ = id => document.getElementById(id);
+$('codigo').addEventListener('input', async () => {
+  const c = normalizar($('codigo').value);
+  $('lic').className = 'lic'; $('err').textContent = '';
+  if (!c) return;
+  if (c.length !== 10){ $('err').textContent = 'El código tiene 10 caracteres (lleva ' + c.length + ').'; return; }
+  $('valor').textContent = await licenciaPara(c);
+  $('lic').className = 'lic on';
+});
+$('copiar').addEventListener('click', () => {
+  navigator.clipboard.writeText($('valor').textContent);
+  $('copiar').textContent = 'Copiada';
+  setTimeout(() => $('copiar').textContent = 'Copiar', 1500);
+});
+</script>
+</body>
+</html>

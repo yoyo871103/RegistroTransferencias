@@ -69,6 +69,7 @@
   input:hover,select:hover{border-color:var(--color-gray-400)}
   input:focus,select:focus{outline:none;border-color:var(--color-primary-600);box-shadow:var(--ring)}
   input.cod{font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.06em;font-size:16px}
+  input.cod.exacto{text-transform:none}
   input.imp{font-family:var(--font-mono);text-align:right;font-size:17px;font-weight:600}
   input.ci{font-family:var(--font-mono);letter-spacing:.06em}
 
@@ -167,6 +168,10 @@
   .sug.on{display:flex}
   .sug>div{flex:1;min-width:0}
   .sug .t{font-size:12px;color:var(--color-gray-500);margin-top:1px}
+  .texto{color:var(--color-gray-500);font-size:13px;margin:0 0 4px}
+  .codtab{display:flex;align-items:center;gap:8px;padding:8px 8px 8px 12px;background:var(--surface-1);
+    border:1px solid var(--color-gray-200);border-radius:var(--radius-lg)}
+  .codtab b{flex:1;font-family:var(--font-mono);font-size:19px;letter-spacing:.08em;color:var(--color-gray-800)}
   .smsraw{font-size:12px;color:var(--color-gray-500);white-space:pre-wrap;word-break:break-word;margin-top:4px}
 </style>
 </head>
@@ -321,6 +326,24 @@
   <div class="pie"><button class="ln" onclick="ver('vInicio');pintarInicio()">Volver</button></div>
 </div>
 
+<!-- ══════════ LICENCIA (solo en el APK) ══════════ -->
+<div class="vista" id="vLicencia">
+  <header><div class="h1">Activar la app</div><div class="h2">Registro de Transferencias</div></header>
+  <div class="cuerpo">
+    <p class="texto">Esta tablet todavía no tiene licencia. Envía el código de esta tablet a
+      tu proveedor: te devolverá un código de licencia para escribirlo aquí abajo.</p>
+    <label>Código de esta tablet</label>
+    <div class="codtab"><b id="licTablet">—</b>
+      <button class="ln mini" onclick="copiarCodigoTablet()">Copiar</button>
+      <button class="ln mini" onclick="enviarCodigoTablet()">Enviar</button></div>
+    <label>Código de licencia</label>
+    <input class="cod" id="inLic" autocomplete="off" spellcheck="false" maxlength="14"
+           placeholder="XXXX-XXXX-XXXX" enterkeyhint="done">
+    <div class="avi" id="aviLic"></div>
+    <div style="margin-top:12px"><button class="gr" onclick="activarLicencia()">Activar</button></div>
+  </div>
+</div>
+
 <div class="modal" id="modal"><div class="caja" id="cajaModal"></div></div>
 
 <script>
@@ -411,7 +434,11 @@ function completar(){
   // solo cuentan los de hoy: los de días anteriores se olvidan al abrir
   d.porRegistrar = (d.porRegistrar || []).filter(function(p){ return p.fecha === hoy(); });
   if (!d.smsDescartados) d.smsDescartados = [];   // marcados como "ya usado"
-  if (!d.sms) d.sms = { remitentes: SMS_REMITENTES.slice() };
+  if (!d.sms) d.sms = { remitentes: SMS_REMITENTES.slice(), v:2 };
+  if (!d.sms.v){
+    if (d.sms.remitentes.join() === 'PAGOxMOVIL') d.sms.remitentes.push('ENZONA');
+    d.sms.v = 2;
+  }
   // clientes frecuentes: la primera vez se sacan de lo ya registrado
   if (!d.clientes){
     d.clientes = {};
@@ -506,6 +533,35 @@ function enviarArchivo(nombre, datos, utf8){
     var m = String(e && (e.message || e));
     if (!/cancel/i.test(m)) alert('No se pudo compartir el archivo.\n\n' + m);
   });
+}
+
+/* Licencia por tablet (APK; LicenciaPlugin.java). Sin licencia solo se ve la
+   pantalla de activación y Android no lee los SMS. La PWA no tiene licencia. */
+var LICENCIA = window.LicenciaNativa || null;
+function licenciaActiva(){ return !LICENCIA || LICENCIA.activa(); }
+function copiarCodigoTablet(){
+  var c = LICENCIA.codigo();
+  (navigator.clipboard ? navigator.clipboard.writeText(c) : Promise.reject())
+    .then(function(){ aviso('aviLic', 'Código copiado: ' + c, 'ok'); })
+    .catch(function(){ aviso('aviLic', 'No se pudo copiar: anota el código a mano.', 'war'); });
+}
+function enviarCodigoTablet(){
+  Nat.share.share({ title:'Código de tablet', dialogTitle:'Enviar código',
+    text:'Código de tablet para la licencia de Registro de Transferencias: ' + LICENCIA.codigo() })
+    .catch(function(){});
+}
+function activarLicencia(){
+  var t = $('inLic').value.trim();
+  if (!t){ aviso('aviLic', 'Escribe el código de licencia.'); $('inLic').focus(); return; }
+  if (!LICENCIA.activar(t)){
+    aviso('aviLic', 'Ese código de licencia no es para esta tablet. Revísalo o pide uno nuevo ' +
+                    'con el código ' + LICENCIA.codigo() + '.');
+    $('inLic').select();
+    return;
+  }
+  ver('vInicio');
+  iniciarApp();
+  aviso('aviInicio', 'App activada. ¡Lista para usar!', 'ok');
 }
 
 // pide a Chrome que no borre los datos si la tablet se queda sin espacio
@@ -731,10 +787,16 @@ function ponerPatron(id){
   patron = buscarPatron(id);
   d.ultimoPatron = id; guardarPreferencia();
   $('inCod').value = '';
+  soltarCodigoSms();
   pintarPatrones();
   $('inCod').focus();
 }
+/* Número cargado desde un SMS con minúsculas (ENZONA): se respeta tal cual
+   mientras el cajero no lo toque; si lo edita, vuelve a ir en mayúsculas. */
+var codigoSms = null;
+function soltarCodigoSms(){ codigoSms = null; $('inCod').classList.remove('exacto'); }
 function codigoCompleto(){
+  if (codigoSms && patron.id === OTRO.id && $('inCod').value === codigoSms) return codigoSms;
   return (patron.pre + $('inCod').value.trim().toUpperCase() + patron.suf)
          .replace(/\s+/g,'');
 }
@@ -743,7 +805,7 @@ function pintarPrevio(){
   var e = $('prev');
   if (!$('inCod').value.trim()){ e.textContent = '—'; e.className = 'prev'; return; }
   e.textContent = c + '   (' + c.length + ' caracteres)';
-  e.className = 'prev' + (c.length === 13 ? ' ok' : '');
+  e.className = 'prev' + (c.length === 13 || codigoSms ? ' ok' : '');
 }
 
 function pintarPrevioCI(){
@@ -813,13 +875,13 @@ function agregar(){
 
   // duplicado: el mismo código ya registrado en cualquier lote
   var dup = d.registros.filter(function(r){
-    return r.codigo === cod && r.id !== (editando||''); })[0];
+    return mismoCodigo(r.codigo, cod) && r.id !== (editando||''); })[0];
   if (dup && !confirm('El código ' + cod + ' ya está registrado el ' +
         fechaLarga(dup.fecha) + ' por ' + dup.cajero + ', por ' + fmt(dup.importe) +
         ' CUP.\n\n¿Registrarlo otra vez de todos modos?')) {
     $('inCod').select(); return;
   }
-  if (cod.length !== 13 && !confirm('El código tiene ' + cod.length +
+  if (cod.length !== 13 && !codigoSms && !confirm('El código tiene ' + cod.length +
         ' caracteres y lo normal son 13.\n\n' + cod + '\n\n¿Está bien así?')) {
     $('inCod').select(); return;
   }
@@ -834,7 +896,7 @@ function agregar(){
       nombre:nom, ci:ci, telefono:tel });
   }
   // si venía de un SMS, deja de estar pendiente
-  d.porRegistrar = d.porRegistrar.filter(function(p){ return p.codigo !== cod; });
+  d.porRegistrar = d.porRegistrar.filter(function(p){ return !mismoCodigo(p.codigo, cod); });
   recordarCliente(tel, nom, ci, lote.fecha, !editando);
   if (!guardar()){
     // se deja lo tecleado para reintentar después de liberar espacio
@@ -845,6 +907,7 @@ function agregar(){
   }
   $('inCod').value = ''; $('inImp').value = ''; $('inNom').value = ''; $('inCI').value = '';
   $('inTel').value = '';
+  soltarCodigoSms();
   pintarPrevio(); pintarPrevioCI(); pintarPrevioTel();
   aviso('aviCap', 'Registrado: ' + cod + ' · ' + fmt(imp) + ' CUP', 'ok');
   pintarCaptura();
@@ -1021,7 +1084,8 @@ function pintarAjustes(){
       (protegido === true ? 'activa' :
        protegido === false ? 'no concedida (instala la app para obtenerla)' : 'no disponible') +
       '</b><br>' +
-    'Última copia: <b>' + (d.ultimaCopia ? fechaLarga(d.ultimaCopia) : 'nunca') + '</b>';
+    'Última copia: <b>' + (d.ultimaCopia ? fechaLarga(d.ultimaCopia) : 'nunca') + '</b>' +
+    (LICENCIA ? '<br>Licencia: <b>activa</b> · tablet <b>' + LICENCIA.codigo() + '</b>' : '');
   pintarFormatos();
   pintarSmsAjustes();
 }
@@ -1156,12 +1220,20 @@ function respaldar(){
      El titular del telefono 5351112233 le ha realizado una transferencia a la
      cuenta 9999000011112222 de 10000.00 CUP. Nro. Transaccion KW601YFBRP999.
      Fecha: 15/10/2026.
-   y sin teléfono: "Se ha realizado una transferencia a la cuenta … de …". */
-var SMS_REMITENTES = ['PAGOxMOVIL'];
+   y sin teléfono: "Se ha realizado una transferencia a la cuenta … de …".
+
+   Formato de ENZONA (remitente ENZONA):
+     ENZONA pago recibido, Importe: 10.00 CUP No.: Xn24kbc2NDFV
+   Su número lleva mayúsculas y minúsculas: se guarda y se exporta tal cual
+   (para comparar si ya está registrado no se distinguen). El mismo remitente
+   manda códigos de acceso ("CODIGO DE ACCESO ENZONA: 398213"): no son pagos. */
+var SMS_REMITENTES = ['PAGOxMOVIL', 'ENZONA'];
+var SMS_ENZONA = /pago recibido[\s\S]*?\bNo\.?\s*:?\s*([A-Za-z0-9]{6,30})\b/i;
 var SMS_CODIGO = /Transacci[oó]n\s*:?\s*([A-Z0-9]{6,20})\b/i;   // lo que va tras "Nro. Transaccion"
 var SMS_GENERICO = '[A-Z]{2}\\d[A-Z0-9]{10}';   // si cambia el texto: dos letras, un dígito, 13 en total
 var SMS_IMPORTES = [
   /\bde\s+(\d[\d.,]*\d|\d)\s*CUP\b/i,
+  /\bImporte\s*:?\s*(\d[\d.,]*\d|\d)/i,
   /\b(\d[\d.,]*\d|\d)\s*(?:CUP|MN|pesos)\b/i
 ];
 var SMS_TELEFONO = /tel[eé]fono\s*:?\s*\+?(\d{8,10})\b/i;
@@ -1170,7 +1242,9 @@ var smsEstado = null;   // permisos según Android: { sms, notificaciones }
 function medianoche(){ var f = new Date(); f.setHours(0,0,0,0); return f.getTime(); }
 function isoDe(f){ return f.getFullYear() + '-' + p2(f.getMonth()+1) + '-' + p2(f.getDate()); }
 function horaDe(ms){ var f = new Date(ms); return p2(f.getHours()) + ':' + p2(f.getMinutes()); }
-function yaRegistrado(codigo){ return d.registros.some(function(r){ return r.codigo === codigo; }); }
+// los números se comparan sin distinguir mayúsculas (ENZONA las mezcla; el cajero teclea en mayúsculas)
+function mismoCodigo(a, b){ return String(a).toUpperCase() === String(b).toUpperCase(); }
+function yaRegistrado(codigo){ return d.registros.some(function(r){ return mismoCodigo(r.codigo, codigo); }); }
 // los que se ofrecen: de hoy y sin registrar
 function pendientesSms(){
   var h = hoy();
@@ -1197,8 +1271,9 @@ function regexCodigos(){
 // { codigo, importe, telefono } o null si el SMS no es una transferencia
 function analizarSms(texto){
   var t = String(texto || ''), may = t.toUpperCase(), codigo = null, importe = null;
-  var mc = SMS_CODIGO.exec(may);
-  if (mc) codigo = mc[1];
+  var me = SMS_ENZONA.exec(t), mc = SMS_CODIGO.exec(may);
+  if (me) codigo = me[1];          // ENZONA: tal cual, con sus minúsculas
+  else if (mc) codigo = mc[1];
   else regexCodigos().some(function(r){
     var m = new RegExp('\\b' + r + '\\b').exec(may);
     if (m) codigo = m[0];
@@ -1225,8 +1300,9 @@ function incorporarSms(lista){
   lista.forEach(function(s){
     if (s.fecha < desde || !remitenteAceptado(s.remitente)) return;   // solo los de hoy
     var a = analizarSms(s.cuerpo);
-    if (!a || yaRegistrado(a.codigo) || d.smsDescartados.indexOf(a.codigo) >= 0 ||
-        d.porRegistrar.some(function(p){ return p.codigo === a.codigo; })) return;
+    if (!a || yaRegistrado(a.codigo) ||
+        d.smsDescartados.some(function(c){ return mismoCodigo(c, a.codigo); }) ||
+        d.porRegistrar.some(function(p){ return mismoCodigo(p.codigo, a.codigo); })) return;
     var f = new Date(s.fecha);
     d.porRegistrar.push({ codigo:a.codigo, importe:a.importe, telefono:a.telefono,
       remitente:s.remitente || '', fecha:isoDe(f), hora:horaDe(s.fecha), texto:s.cuerpo });
@@ -1245,8 +1321,9 @@ function configurarSms(){
   var excluir = d.registros.slice(-500).map(function(r){ return r.codigo; })
                  .concat(d.smsDescartados.slice(-500));
   Nat.sms.configurar({ remitentes:d.sms.remitentes, excluir:excluir,
-    codigo:'TRANSACCI[OÓ]N\\s*:?\\s*([A-Z0-9]{6,20})\\b|\\b(?:' + regexCodigos().join('|') + ')\\b',
-    importe:'\\bde\\s+(\\d[\\d.,]*\\d|\\d)\\s*CUP' }).catch(function(){});
+    codigo:'PAGO RECIBIDO[\\s\\S]*?\\bNO\\.?\\s*:?\\s*([A-Z0-9]{6,30})\\b' +
+           '|TRANSACCI[OÓ]N\\s*:?\\s*([A-Z0-9]{6,20})\\b|\\b(?:' + regexCodigos().join('|') + ')\\b',
+    importe:'\\b(\\d[\\d.,]*\\d|\\d)\\s*CUP\\b' }).catch(function(){});
 }
 function refrescarEstadoSms(){
   if (!NATIVO) return;
@@ -1280,6 +1357,7 @@ function pintarBandeja(){
     ps.forEach(function(p){
       h += '<div class="reg sms"><div class="c">' + esc(p.codigo) +
            '<div class="t"><span>' + esc(p.hora) + '</span>' +
+             (p.remitente ? ' · <span>' + esc(p.remitente) + '</span>' : '') +
              (clienteDe(p.telefono) && clienteDe(p.telefono).nombre
                ? ' · <span>' + esc(clienteDe(p.telefono).nombre) + '</span>' : '') +
            '</div></div>' +
@@ -1312,6 +1390,10 @@ function usarSms(codigo){
   })[0] || OTRO;
   ponerPatron(pt.id);
   $('inCod').value = codigo.slice(pt.pre.length, codigo.length - pt.suf.length);
+  if (pt === OTRO && codigo !== codigo.toUpperCase()){   // ENZONA: con sus minúsculas
+    codigoSms = codigo;
+    $('inCod').classList.add('exacto');
+  }
   pintarPrevio();
   $('inImp').value = p.importe != null ? p.importe.toFixed(2) : '';
   // el teléfono de quien pagó, si el SMS lo trae; nombre y CI se dejan como estén
@@ -1457,9 +1539,13 @@ function cerrarModal(){ $('modal').className = 'modal'; }
 cargar();
 proteger();
 patron = buscarPatron(d.ultimoPatron);
-pintarInicio();
-pintarPatrones();
-if (NATIVO){
+if (licenciaActiva()) iniciarApp();
+else { $('licTablet').textContent = LICENCIA.codigo(); ver('vLicencia'); }
+
+function iniciarApp(){
+  pintarInicio();
+  pintarPatrones();
+  if (!NATIVO) return;
   configurarSms();
   refrescarEstadoSms();
   recogerSms();
@@ -1469,8 +1555,17 @@ if (NATIVO){
     if (!document.hidden){ refrescarEstadoSms(); recogerSms(); }
   });
 }
+$('inLic').addEventListener('input', function(){
+  // mayúsculas y un guion cada 4: XXXX-XXXX-XXXX
+  var v = this.value.toUpperCase().replace(/[^0-9A-Z]/g,'').slice(0,12).replace(/(.{4})(?=.)/g,'$1-');
+  if (v !== this.value) this.value = v;
+});
+$('inLic').addEventListener('keydown', function(e){
+  if (e.key === 'Enter'){ e.preventDefault(); activarLicencia(); }
+});
 
 $('inCod').addEventListener('input', function(){
+  soltarCodigoSms();   // el cajero lo está tecleando: va en mayúsculas
   var v = this.value.toUpperCase().replace(/[^A-Z0-9]/g,'');
   if (v !== this.value) this.value = v;
   pintarPrevio();
@@ -1548,6 +1643,8 @@ window.construirLibro = construirLibro;
 window.guardarFormatos = guardarFormatos; window.formatosFabrica = formatosFabrica;
 window.usarSms = usarSms; window.descartarSms = descartarSms; window.revisarHoy = revisarHoy;
 window.activarSms = activarSms; window.guardarRemitentes = guardarRemitentes;
+window.copiarCodigoTablet = copiarCodigoTablet; window.enviarCodigoTablet = enviarCodigoTablet;
+window.activarLicencia = activarLicencia;
 window.verSmsHoy = verSmsHoy; window.recuperarSms = recuperarSms; window.alternarUsados = alternarUsados;
 window.usarCliente = usarCliente; window.olvidarClientes = olvidarClientes; window.alternarLista = alternarLista;
 })();

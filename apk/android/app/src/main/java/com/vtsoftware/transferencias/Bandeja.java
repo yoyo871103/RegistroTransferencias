@@ -41,9 +41,11 @@ final class Bandeja {
 
     // Los mismos valores que SMS_NATIVO en index.html; la app los vuelve a enviar
     // al abrirse, así que estos solo cuentan antes de la primera apertura.
+    // ENZONA ("pago recibido … No.: Xn24kbc2NDFV") | PAGOxMOVIL ("Nro. Transaccion KW601…") | genérico
     private static final String CODIGO_FABRICA =
-        "TRANSACCI[OÓ]N\\s*:?\\s*([A-Z0-9]{6,20})\\b|\\b[A-Z]{2}\\d[A-Z0-9]{10}\\b";
-    private static final String IMPORTE_FABRICA = "\\bde\\s+(\\d[\\d.,]*\\d|\\d)\\s*CUP";
+        "PAGO RECIBIDO[\\s\\S]*?\\bNO\\.?\\s*:?\\s*([A-Z0-9]{6,30})\\b" +
+        "|TRANSACCI[OÓ]N\\s*:?\\s*([A-Z0-9]{6,20})\\b|\\b[A-Z]{2}\\d[A-Z0-9]{10}\\b";
+    private static final String IMPORTE_FABRICA = "\\b(\\d[\\d.,]*\\d|\\d)\\s*CUP\\b";
 
     private Bandeja() {}
 
@@ -87,14 +89,16 @@ final class Bandeja {
 
     /** Llamado por SmsReceiver con cada SMS completo (las partes ya unidas). */
     static synchronized void recibir(Context ctx, String remitente, String cuerpo, long fecha) {
+        if (!LicenciaPlugin.activa(ctx)) return;   // sin licencia no se leen los SMS
         JSONObject cfg = config(ctx);
         if (!aceptaRemitente(cfg.optJSONArray("remitentes"), remitente)) return;
+        // se busca en mayúsculas, pero se devuelve el número como viene (ENZONA mezcla mayúsculas)
         String codigo = buscar(cfg.optString("codigo", CODIGO_FABRICA), CODIGO_FABRICA,
-                               cuerpo.toUpperCase(Locale.ROOT));
+                               cuerpo.toUpperCase(Locale.ROOT), cuerpo);
         if (codigo == null) return;   // no parece una transferencia
         // ya registrado (p. ej. el cajero lo tecleó antes de que llegara el SMS) o marcado como usado
         if (contiene(cfg.optJSONArray("excluir"), codigo)) return;
-        String importe = buscar(cfg.optString("importe", IMPORTE_FABRICA), IMPORTE_FABRICA, cuerpo);
+        String importe = buscar(cfg.optString("importe", IMPORTE_FABRICA), IMPORTE_FABRICA, cuerpo, cuerpo);
 
         JSONObject sms = new JSONObject();
         try {
@@ -126,13 +130,18 @@ final class Bandeja {
     private static boolean contiene(JSONArray lista, String valor) {
         if (lista == null) return false;
         for (int i = 0; i < lista.length(); i++) {
-            if (valor.equals(lista.optString(i))) return true;
+            if (valor.equalsIgnoreCase(lista.optString(i))) return true;
         }
         return false;
     }
 
     /** Primer grupo si la expresión tiene uno; si la configurada no compila, la de fábrica. */
-    private static String buscar(String regex, String fabrica, String texto) {
+    /**
+     * Busca en 'texto' y devuelve ese mismo trozo de 'original' (misma longitud:
+     * 'texto' es 'original' en mayúsculas). Se queda con el primer grupo que
+     * encontró algo (cada formato de SMS tiene el suyo); si no hay grupos, todo.
+     */
+    private static String buscar(String regex, String fabrica, String texto, String original) {
         Pattern p;
         try {
             p = Pattern.compile(regex);
@@ -141,7 +150,12 @@ final class Bandeja {
         }
         Matcher m = p.matcher(texto);
         if (!m.find()) return null;
-        return m.groupCount() >= 1 && m.group(1) != null ? m.group(1) : m.group();
+        int g = 0;
+        for (int i = 1; i <= m.groupCount(); i++) {
+            if (m.group(i) != null) { g = i; break; }
+        }
+        String fuente = original.length() == texto.length() ? original : texto;
+        return fuente.substring(m.start(g), m.end(g));
     }
 
     private static void notificar(Context ctx, String codigo, String importe) {
