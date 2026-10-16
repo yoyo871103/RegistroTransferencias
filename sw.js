@@ -1,11 +1,12 @@
 /* Service worker: guarda la app para que funcione sin internet.
    Al publicar una versión nueva hay que subir VERSION; si no, la tablet
    seguirá usando la copia vieja que tiene guardada. */
-const VERSION = 'v8';
+const VERSION = 'v9';
 const CACHE = 'transferencias-' + VERSION;
 const ARCHIVOS = [
   './', './index.html', './manifest.webmanifest',
-  './icon-192.png', './icon-512.png', './icon-mask.png'
+  './icon-192.png', './icon-512.png', './icon-mask.png',
+  './fonts/InterVariable.woff2'
 ];
 
 self.addEventListener('install', e => {

@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#17251F">
+<meta name="theme-color" content="#ffffff">
 <title>Registro de Transferencias</title>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -12,113 +12,162 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <style>
+  /* Estilo visual Tailux (los mismos tokens que BinaryPlate, design-tokens.css):
+     primario indigo, grises slate, tarjetas blancas con sombra suave sobre
+     gris-50, radios de 8 px, tipografía Inter y campos densos (36 px). */
+  @font-face{font-family:'Inter';font-style:normal;font-weight:100 900;font-display:swap;
+    src:url('fonts/InterVariable.woff2') format('woff2-variations'),
+        url('fonts/InterVariable.woff2') format('woff2')}
   :root{
-    --paper:#FBFCF9; --bar:#E6EDE4; --rule:#C0CFBC; --ink:#17251F;
-    --soft:#5A6B62; --green:#0E6B4A; --stamp:#A93B27; --amber:#8A6A12;
-    --mono:"Roboto Mono",Consolas,monospace;
-    --sans:"Segoe UI",Roboto,system-ui,sans-serif;
+    --color-white:#ffffff;
+    --color-gray-50:#f8fafc; --color-gray-100:#f1f5f9; --color-gray-150:#e9eef5;
+    --color-gray-200:#e2e8f0; --color-gray-300:#cbd5e1; --color-gray-400:#94a3b8;
+    --color-gray-500:#64748b; --color-gray-600:#475569; --color-gray-700:#334155;
+    --color-gray-800:#1e293b; --color-gray-900:#0f172a;
+    --color-primary-50:#eef2ff; --color-primary-100:#e0e7ff; --color-primary-200:#c7d2fe;
+    --color-primary-500:#6366f1; --color-primary-600:#4f46e5; --color-primary-700:#4338ca;
+    --color-success:#059669; --color-success-50:#ecfdf5; --color-success-200:#a7f3d0;
+    --color-warning:#f59200; --color-warning-text:#b45309; --color-warning-50:#fffbeb; --color-warning-200:#fde68a;
+    --color-error:#ff4f1a; --color-error-darker:#e52e00; --color-error-50:#fff1ec; --color-error-200:#ffc9b8;
+    --surface-1:var(--color-white); --surface-2:var(--color-gray-50); --surface-3:var(--color-gray-100);
+    --shadow-soft:rgba(145,158,171,.2) 0 0 2px 0, rgba(145,158,171,.12) 0 12px 24px -4px;
+    --radius-md:6px; --radius-lg:8px; --radius-xl:12px;
+    --ring:0 0 0 3px rgb(99 102 241 / .15);
+    --font-sans:Inter,ui-sans-serif,system-ui,Roboto,"Segoe UI",sans-serif;
+    --font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,"Roboto Mono",monospace;
+    --alto:36px;   /* campos y botones densos */
+    /* alias que usa el HTML */
+    --mono:var(--font-mono); --soft:var(--color-gray-500);
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{margin:0;padding:0;height:100%;overflow:hidden}
-  body{background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:17px}
+  body{background:var(--color-gray-50);color:var(--color-gray-700);font-family:var(--font-sans);
+    font-size:14px;line-height:1.43}
   .vista{display:none;flex-direction:column;height:100%}
   .vista.on{display:flex}
 
   /* en el APK (Android 15+) la app ocupa toda la pantalla: se deja sitio a las barras */
-  header{background:var(--ink);color:var(--paper);flex:none;
-    padding:calc(10px + env(safe-area-inset-top)) 14px 10px}
-  .h1{font-size:19px;font-weight:600}
-  .h2{font-size:12.5px;opacity:.72;margin-top:2px;font-family:var(--mono)}
-  .cuerpo{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px}
-  .pie button{padding:9px;font-size:15px}
-  .pie{flex:none;border-top:1px solid var(--rule);background:#fff;
-    padding:10px 14px calc(10px + env(safe-area-inset-bottom))}
+  header{background:var(--surface-1);color:var(--color-gray-800);flex:none;
+    border-bottom:1px solid var(--color-gray-200);
+    padding:calc(9px + env(safe-area-inset-top)) 16px 9px}
+  .h1{font-size:16px;font-weight:600;letter-spacing:-.01em}
+  .h2{font-size:12px;color:var(--color-gray-500);margin-top:1px;font-family:var(--font-mono)}
+  .cuerpo{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 16px}
+  .pie{flex:none;border-top:1px solid var(--color-gray-200);background:var(--surface-1);
+    padding:8px 16px calc(8px + env(safe-area-inset-bottom))}
+  .pie button{height:34px;font-size:13px}
+  .pie #btnAgregar{height:var(--alto);font-size:14px;font-weight:600;letter-spacing:.02em}
+  .pie .avi{margin:0 0 6px}
+  .fila.par>div{min-width:0}
 
-  label{display:block;font-size:12px;letter-spacing:.11em;text-transform:uppercase;
-        color:var(--soft);margin:14px 0 5px;font-weight:600}
-  input,select{width:100%;padding:14px;border:2px solid var(--rule);border-radius:8px;
-    font-size:20px;font-family:var(--sans);background:#fff;color:var(--ink)}
-  input:focus,select:focus{outline:none;border-color:var(--green)}
-  input.cod{font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;font-size:24px}
-  input.imp{font-family:var(--mono);text-align:right;font-size:26px}
+  label{display:block;font-size:13px;font-weight:500;color:var(--color-gray-600);margin:10px 0 4px}
+  input,select{width:100%;height:var(--alto);padding:0 12px;border:1px solid var(--color-gray-300);
+    border-radius:var(--radius-lg);font-size:14px;font-family:var(--font-sans);
+    background:var(--surface-1);color:var(--color-gray-800);
+    transition:border-color .15s,box-shadow .15s}
+  input::placeholder{color:var(--color-gray-400);font-weight:300}
+  input:hover,select:hover{border-color:var(--color-gray-400)}
+  input:focus,select:focus{outline:none;border-color:var(--color-primary-600);box-shadow:var(--ring)}
+  input.cod{font-family:var(--font-mono);text-transform:uppercase;letter-spacing:.06em;font-size:16px}
+  input.imp{font-family:var(--font-mono);text-align:right;font-size:17px;font-weight:600}
+  input.ci{font-family:var(--font-mono);letter-spacing:.06em}
 
-  button{font-family:var(--sans);font-size:17px;font-weight:600;padding:15px;
-    border:0;border-radius:8px;background:var(--ink);color:var(--paper);width:100%;cursor:pointer}
-  button:active{opacity:.75}
-  button.gr{background:var(--green)}
-  button.ln{background:transparent;color:var(--ink);border:2px solid var(--rule)}
-  button.rj{background:var(--stamp)}
-  button:disabled{opacity:.35}
-  .fila{display:flex;gap:10px}
+  button{font-family:var(--font-sans);font-size:14px;font-weight:500;height:var(--alto);
+    padding:0 14px;border:0;border-radius:var(--radius-lg);background:var(--color-primary-600);
+    color:var(--color-white);width:100%;cursor:pointer;transition:background-color .2s,border-color .2s}
+  button:hover{background:var(--color-primary-500)}
+  button:active{background:var(--color-primary-700)}
+  button:focus-visible{outline:none;box-shadow:0 0 0 3px rgb(99 102 241 / .25)}
+  button.gr{background:var(--color-primary-600)}
+  button.ln{background:var(--surface-1);color:var(--color-gray-700);border:1px solid var(--color-gray-300)}
+  button.ln:hover{background:var(--color-gray-50);border-color:var(--color-gray-400)}
+  button.ln:active{background:var(--color-gray-100)}
+  button.rj{background:var(--color-error)}
+  button.rj:hover{background:var(--color-error-darker)}
+  button:disabled{opacity:.7;pointer-events:none}
+  .fila{display:flex;gap:8px}
   .fila>*{flex:1}
+  .mini{height:30px;padding:0 10px;font-size:13px;width:auto;flex:none}
 
-  .marc{display:flex;gap:1px;background:var(--rule);border:1px solid var(--rule);
-    border-radius:8px;overflow:hidden;margin-bottom:8px}
-  .marc div{flex:1;background:#fff;padding:4px 6px;text-align:center;
+  .marc{display:flex;gap:1px;background:var(--color-gray-200);border-radius:var(--radius-lg);
+    overflow:hidden;margin-bottom:10px;box-shadow:var(--shadow-soft)}
+  .marc div{flex:1;background:var(--surface-1);padding:5px 8px;text-align:center;
     display:flex;align-items:baseline;justify-content:center;gap:7px}
-  .marc b{font-size:16px;font-family:var(--mono)}
-  .marc span{font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--soft)}
+  .marc b{font-size:15px;font-weight:600;color:var(--color-gray-800);font-family:var(--font-mono)}
+  .marc span{font-size:11px;font-weight:500;color:var(--color-gray-500)}
 
-  .reg{display:flex;align-items:center;gap:10px;padding:11px 12px;background:#fff;
-    border:1px solid var(--rule);border-radius:8px;margin-bottom:7px}
-  .reg .c{font-family:var(--mono);font-size:16px;flex:1;word-break:break-all}
-  .reg .m{font-family:var(--mono);font-size:17px;font-weight:600;white-space:nowrap}
-  .reg .t{font-size:11px;color:var(--soft);font-family:var(--mono);word-break:normal}
+  .reg{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--surface-1);
+    border:1px solid var(--color-gray-200);border-radius:var(--radius-lg);margin-bottom:6px}
+  .reg .c{font-family:var(--font-mono);font-size:14px;color:var(--color-gray-800);flex:1;word-break:break-all}
+  .reg .m{font-family:var(--font-mono);font-size:14px;font-weight:600;color:var(--color-gray-800);white-space:nowrap}
+  .reg .t{font-size:12px;color:var(--color-gray-500);font-family:var(--font-sans);word-break:normal;margin-top:1px}
   .reg .t span{white-space:nowrap}
-  .reg.dup{border-color:var(--stamp);background:#FBF0EE}
-  .mini{padding:9px 13px;font-size:14px;width:auto;flex:none}
+  .reg.dup{border-color:var(--color-error-200);background:var(--color-error-50)}
+  .reg.sms{border-color:var(--color-primary-200);background:var(--color-primary-50)}
+  .reg.usado{background:var(--color-gray-100);border-style:dashed}
+  .reg.usado .c,.reg.usado .m{color:var(--color-gray-500)}
+  .avi.deshacer.on{display:flex;align-items:center;gap:10px;justify-content:space-between}
+  .mas{display:block;width:100%;margin-top:2px;background:transparent;color:var(--color-primary-600);
+    height:30px;font-size:13px}
+  .mas:hover{background:var(--color-primary-50)}
 
-  .pats{display:flex;gap:7px;margin-bottom:9px}
-  .pats button{flex:1;padding:12px 4px;font-size:16px;font-family:var(--mono);
-    background:var(--bar);color:var(--soft);border:2px solid var(--rule)}
-  .pats button.sel{background:var(--ink);color:var(--paper);border-color:var(--ink)}
-  .armado{display:flex;align-items:stretch;border:2px solid var(--rule);
-    border-radius:8px;overflow:hidden;background:#fff}
-  .armado:focus-within{border-color:var(--green)}
-  .fijo{background:var(--bar);color:var(--soft);font-family:var(--mono);font-size:22px;
-    padding:14px 9px;display:flex;align-items:center;letter-spacing:.04em}
-  .armado input{border:0;border-radius:0;flex:1;min-width:0}
-  .prev{font-family:var(--mono);font-size:15px;color:var(--soft);text-align:center;
-    margin-top:6px;letter-spacing:.08em}
-  .prev.ok{color:var(--green);font-weight:600}
-  .prev.mal{color:var(--stamp);font-weight:600}
-  input.ci{font-family:var(--mono);letter-spacing:.08em}
-  .chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:8px}
-  .chips button{width:auto;flex:none;padding:9px 15px;font-size:15px;font-family:var(--mono);
-    background:var(--bar);color:var(--ink);border:1px solid var(--rule)}
+  /* selector de formato: control segmentado */
+  .pats{display:flex;gap:2px;margin-bottom:6px;padding:2px;background:var(--color-gray-100);
+    border-radius:var(--radius-lg)}
+  .pats button{flex:1;height:30px;padding:0 4px;font-size:13px;font-family:var(--font-mono);
+    background:transparent;color:var(--color-gray-600);border-radius:var(--radius-md)}
+  .pats button:hover{background:var(--color-gray-150)}
+  .pats button.sel{background:var(--surface-1);color:var(--color-primary-600);font-weight:600;
+    box-shadow:0 1px 2px rgb(0 0 0 / .08)}
+  .armado{display:flex;align-items:stretch;border:1px solid var(--color-gray-300);
+    border-radius:var(--radius-lg);overflow:hidden;background:var(--surface-1);
+    transition:border-color .15s,box-shadow .15s}
+  .armado:hover{border-color:var(--color-gray-400)}
+  .armado:focus-within{border-color:var(--color-primary-600);box-shadow:var(--ring)}
+  .fijo{background:var(--color-gray-100);color:var(--color-gray-500);font-family:var(--font-mono);
+    font-size:15px;padding:0 9px;display:flex;align-items:center;letter-spacing:.04em}
+  .armado input{border:0;border-radius:0;flex:1;min-width:0;box-shadow:none}
+  .prev{font-family:var(--font-mono);font-size:12px;color:var(--color-gray-400);text-align:right;
+    margin-top:3px;letter-spacing:.04em;min-height:17px}
+  .prev.ok{color:var(--color-success);font-weight:500}
+  .prev.mal{color:var(--color-error);font-weight:500}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+  .chips button{width:auto;flex:none;height:28px;padding:0 10px;font-size:12px;font-family:var(--font-mono);
+    background:var(--color-primary-100);color:var(--color-primary-700)}
+  .chips button:hover{background:var(--color-primary-200)}
 
-  .avi{padding:11px 13px;border-radius:8px;font-size:14.5px;margin:10px 0;display:none}
+  /* avisos: alerta suave de Tailux */
+  .avi{padding:8px 12px;border-radius:var(--radius-lg);font-size:13px;margin:8px 0;display:none;border:1px solid}
   .avi.on{display:block}
-  .avi.err{background:#FBF0EE;border-left:4px solid var(--stamp);color:var(--stamp)}
-  .avi.ok{background:var(--bar);border-left:4px solid var(--green);color:var(--green)}
-  .avi.war{background:#FFF8E6;border-left:4px solid var(--amber);color:var(--amber)}
+  .avi.err{background:var(--color-error-50);border-color:var(--color-error-200);color:var(--color-error-darker)}
+  .avi.ok{background:var(--color-success-50);border-color:var(--color-success-200);color:var(--color-success)}
+  .avi.war{background:var(--color-warning-50);border-color:var(--color-warning-200);color:var(--color-warning-text)}
 
-  .vacio{text-align:center;color:var(--soft);padding:36px 16px;font-size:15px}
-  .sec{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--soft);
-    font-weight:600;margin:20px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--rule)}
-  .lote{padding:12px;background:#fff;border:1px solid var(--rule);border-radius:8px;
-    margin-bottom:8px;display:flex;align-items:center;gap:10px}
+  .vacio{text-align:center;color:var(--color-gray-400);padding:20px 16px;font-size:13px}
+  .sec{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--color-gray-500);
+    font-weight:600;margin:16px 0 6px}
+  .lote{padding:10px 12px;background:var(--surface-1);border-radius:var(--radius-lg);
+    margin-bottom:8px;display:flex;align-items:center;gap:10px;box-shadow:var(--shadow-soft)}
   .lote .i{flex:1}
-  .lote .f{font-weight:600}
-  .lote .d{font-size:13px;color:var(--soft);font-family:var(--mono)}
+  .lote .f{font-weight:600;color:var(--color-gray-800)}
+  .lote .d{font-size:12px;color:var(--color-gray-500);font-family:var(--font-mono)}
 
-  .modal{position:fixed;inset:0;background:rgba(23,37,31,.6);display:none;
-    align-items:center;justify-content:center;padding:20px;z-index:50}
+  .modal{position:fixed;inset:0;background:rgb(15 23 42 / .5);display:none;
+    align-items:center;justify-content:center;padding:16px;z-index:50}
   .modal.on{display:flex}
-  .caja{background:var(--paper);border-radius:12px;padding:20px;width:100%;max-width:430px;
-    max-height:88vh;overflow-y:auto}
-  .caja h3{margin:0 0 4px;font-size:19px}
-  .caja p{margin:0 0 12px;color:var(--soft);font-size:14.5px}
-  .pasos{margin:0;padding-left:22px;font-size:15px;line-height:1.45}
-  .pasos li{margin-bottom:7px}
-  .sug{display:none;align-items:center;gap:10px;margin-top:6px;padding:9px 12px;
-    border:1px solid var(--green);border-radius:8px;background:#F1F7F2;font-size:15px}
+  .caja{background:var(--surface-1);border-radius:var(--radius-xl);padding:18px;width:100%;max-width:430px;
+    max-height:88vh;overflow-y:auto;box-shadow:0 18px 36px rgb(0 0 0 / .12)}
+  .caja h3{margin:0 0 4px;font-size:16px;font-weight:600;color:var(--color-gray-800)}
+  .caja p{margin:0 0 10px;color:var(--color-gray-500);font-size:13px}
+  .pasos{margin:0;padding-left:20px;font-size:14px;line-height:1.45}
+  .pasos li{margin-bottom:6px}
+  .sug{display:none;align-items:center;gap:10px;margin-top:6px;padding:7px 10px;
+    border:1px solid var(--color-primary-200);border-radius:var(--radius-lg);
+    background:var(--color-primary-50);font-size:13px;color:var(--color-gray-800)}
   .sug.on{display:flex}
   .sug>div{flex:1;min-width:0}
-  .sug .t{font-size:11.5px;color:var(--soft);margin-top:2px}
-  .reg.sms{border-color:var(--green);background:#F1F7F2}
-  .reg.sms .mini{padding:9px 11px}
-  .smsraw{font-size:13px;color:var(--soft);white-space:pre-wrap;word-break:break-word;margin-top:4px}
+  .sug .t{font-size:12px;color:var(--color-gray-500);margin-top:1px}
+  .smsraw{font-size:12px;color:var(--color-gray-500);white-space:pre-wrap;word-break:break-word;margin-top:4px}
 </style>
 </head>
 <body>
@@ -178,32 +227,35 @@
     <div class="chips" id="chips"></div>
 
     <div class="sec">Cliente (opcional)</div>
-    <label>Teléfono</label>
-    <div class="armado">
-      <span class="fijo">+53</span><input class="ci" id="inTel" inputmode="numeric"
-        autocomplete="off" enterkeyhint="next" maxlength="14" placeholder="5555 1803">
+    <div class="fila par">
+      <div>
+        <label>Teléfono</label>
+        <div class="armado">
+          <span class="fijo">+53</span><input class="ci" id="inTel" inputmode="numeric"
+            autocomplete="off" enterkeyhint="next" maxlength="14" placeholder="5555 1803">
+        </div>
+        <div class="prev" id="prevTel">—</div>
+      </div>
+      <div>
+        <label>Carnet de identidad</label>
+        <input class="ci" id="inCI" inputmode="numeric" autocomplete="off"
+               enterkeyhint="next" maxlength="11" placeholder="11 dígitos">
+        <div class="prev" id="prevCI">—</div>
+      </div>
     </div>
-    <div class="prev" id="prevTel">—</div>
     <div class="sug" id="sugCli"></div>
     <label>Nombre completo</label>
     <input id="inNom" autocomplete="off" autocapitalize="words" spellcheck="false"
-           enterkeyhint="next" maxlength="80">
-    <label>Carnet de identidad</label>
-    <input class="ci" id="inCI" inputmode="numeric" autocomplete="off"
-           enterkeyhint="done" maxlength="11" placeholder="11 dígitos">
-    <div class="prev" id="prevCI">—</div>
-
-    <div class="avi" id="aviCap"></div>
-
-    <div style="margin-top:14px">
-      <button class="gr" id="btnAgregar" onclick="agregar()">AGREGAR</button>
-    </div>
+           enterkeyhint="done" maxlength="80">
 
     <div class="sec">En este lote</div>
     <div id="listaReg"></div>
   </div>
+  <!-- AGREGAR y los avisos van abajo, siempre a la vista (también con el teclado abierto) -->
   <div class="pie">
-    <div class="fila">
+    <div class="avi" id="aviCap"></div>
+    <button class="gr" id="btnAgregar" onclick="agregar()">AGREGAR</button>
+    <div class="fila" style="margin-top:6px">
       <button class="ln" onclick="ver('vInicio');pintarInicio()">Cerrar lote</button>
       <button class="ln" onclick="exportarLoteActual()">Exportar este lote</button>
     </div>
@@ -320,6 +372,7 @@ var patron = null;
 var d = {};   // estado en memoria
 var lote = null;
 var editando = null;
+var verTodos = false;   // lista "En este lote" desplegada
 
 /* ---------- almacenamiento ----------
    PWA: localStorage (unos 5 MB). APK: un archivo propio de la app
@@ -621,12 +674,14 @@ function entrar(f, c){
   $('capCajero').textContent = c;
   $('capFecha').textContent = fechaLarga(f);
   editando = null;
+  verTodos = false;
   ver('vCaptura');
   pintarCaptura();
   $('inCod').focus();
 }
 
 /* ---------- captura ---------- */
+function alternarLista(){ verTodos = !verTodos; pintarCaptura(); }
 function pintarCaptura(){
   var rs = deLote(lote.fecha, lote.cajero);
   $('mCant').textContent = rs.length;
@@ -640,8 +695,9 @@ function pintarCaptura(){
     return '<button onclick="ponerImporte(' + v + ')">' + fmt(v) + '</button>';
   }).join('');
 
-  var h = '';
-  rs.slice().reverse().forEach(function(r){
+  // la lista del lote se pliega: las 2 últimas y "Ver todas"
+  var h = '', lista = rs.slice().reverse();
+  (verTodos ? lista : lista.slice(0, 2)).forEach(function(r){
     var cli = [r.nombre, r.ci, r.telefono].filter(Boolean).map(function(x){
       return '<span>' + esc(x) + '</span>'; }).join(' · ');
     h += '<div class="reg"><div class="c">' + r.codigo +
@@ -650,6 +706,9 @@ function pintarCaptura(){
          '<button class="ln mini" onclick="editar(\'' + r.id + '\')">Editar</button>' +
          '</div>';
   });
+  if (lista.length > 2)
+    h += '<button class="mas" onclick="alternarLista()">' +
+         (verTodos ? 'Ver menos' : 'Ver todas (' + lista.length + ')') + '</button>';
   $('listaReg').innerHTML = h || '<div class="vacio">Aún no hay registros en este lote.</div>';
   $('btnAgregar').textContent = editando ? 'GUARDAR CAMBIOS' : 'AGREGAR';
   pintarBandeja();
@@ -1115,7 +1174,12 @@ function yaRegistrado(codigo){ return d.registros.some(function(r){ return r.cod
 // los que se ofrecen: de hoy y sin registrar
 function pendientesSms(){
   var h = hoy();
-  return d.porRegistrar.filter(function(p){ return p.fecha === h && !yaRegistrado(p.codigo); });
+  return d.porRegistrar.filter(function(p){ return p.fecha === h && !p.usado && !yaRegistrado(p.codigo); });
+}
+// marcados hoy como "ya usado" (se pueden recuperar)
+function usadosSms(){
+  var h = hoy();
+  return d.porRegistrar.filter(function(p){ return p.fecha === h && p.usado && !yaRegistrado(p.codigo); });
 }
 
 // 1,250.00 · 1.250,00 · 1250.00 · 1250 → número; null si no es un importe
@@ -1206,7 +1270,11 @@ function pintarBandeja(){
   if (!NATIVO){ e.innerHTML = ''; return; }
   var ps = pendientesSms().sort(function(a,b){
     return (b.fecha + b.hora).localeCompare(a.fecha + a.hora); });
-  var h = '';
+  var h = '', us = usadosSms();
+  // recién marcado como usado: se puede deshacer durante unos segundos
+  if (deshacer && Date.now() < deshacer.hasta)
+    h += '<div class="avi ok on deshacer"><span>' + esc(deshacer.codigo) + ' marcado como ya usado.</span>' +
+         '<button class="ln mini" onclick="recuperarSms(\'' + deshacer.codigo + '\')">Deshacer</button></div>';
   if (ps.length){
     h += '<div class="sec" style="margin-top:4px">Por registrar (SMS) · ' + ps.length + '</div>';
     ps.forEach(function(p){
@@ -1221,8 +1289,17 @@ function pintarBandeja(){
            '</div>';
     });
   }
-  h += '<div style="margin-bottom:6px"><button class="ln mini" onclick="revisarHoy()">' +
-       'Revisar SMS de hoy</button></div>';
+  h += '<div class="fila" style="margin-bottom:6px;justify-content:flex-start">' +
+       '<button class="ln mini" onclick="revisarHoy()">Revisar SMS de hoy</button>' +
+       (us.length ? '<button class="ln mini" onclick="alternarUsados()">' +
+                    (verUsados ? 'Ocultar usados' : 'Usados hoy (' + us.length + ')') + '</button>' : '') +
+       '</div>';
+  if (verUsados) us.forEach(function(p){
+    h += '<div class="reg usado"><div class="c">' + esc(p.codigo) +
+         '<div class="t"><span>' + esc(p.hora) + ' · marcado como ya usado</span></div></div>' +
+         '<div class="m">' + (p.importe != null ? fmt(p.importe) : '') + '</div>' +
+         '<button class="ln mini" onclick="recuperarSms(\'' + p.codigo + '\')">Recuperar</button></div>';
+  });
   e.innerHTML = h;
 }
 // pone el código y el importe del SMS en el formulario; el cajero revisa y toca AGREGAR
@@ -1248,19 +1325,37 @@ function usarSms(codigo){
     $('inImp').focus();
   } else {
     aviso('aviCap', 'Datos del SMS cargados. Añade el cliente si quieres y toca AGREGAR.', 'ok');
-    $('inCod').blur();
-    $('btnAgregar').scrollIntoView({ block:'center' });
+    $('inCod').blur();   // AGREGAR ya está siempre a la vista abajo
   }
 }
+/* "Ya usado": sale de la lista y Android deja de avisar por ese número. No se
+   borra: queda marcado (p.usado) para poder deshacerlo al momento o recuperarlo
+   desde "Usados hoy". Sin confirmación: deshacer es más rápido que confirmar. */
+var deshacer = null;    // { codigo, hasta } del último marcado
+var verUsados = false;  // lista "Usados hoy" desplegada
+function alternarUsados(){ verUsados = !verUsados; pintarBandeja(); }
 function descartarSms(codigo){
   var p = d.porRegistrar.filter(function(x){ return x.codigo === codigo; })[0];
-  if (!p || !confirm('¿Marcar ' + codigo +
-      (p.importe != null ? ' de ' + fmt(p.importe) + ' CUP' : '') +
-      ' como ya usado?\n\nNo se registra y no se volverá a ofrecer.')) return;
-  d.smsDescartados.push(codigo);
+  if (!p) return;
+  p.usado = true;
+  if (d.smsDescartados.indexOf(codigo) < 0) d.smsDescartados.push(codigo);
   if (d.smsDescartados.length > 1000) d.smsDescartados.splice(0, d.smsDescartados.length - 1000);
-  d.porRegistrar = d.porRegistrar.filter(function(x){ return x.codigo !== codigo; });
-  guardar();
+  if (!guardar()) return;
+  deshacer = { codigo:codigo, hasta:Date.now() + 10000 };
+  setTimeout(function(){
+    if (deshacer && Date.now() >= deshacer.hasta){ deshacer = null; pintarBandeja(); }
+  }, 10100);
+  refrescarSms();
+}
+// "Deshacer" o "Recuperar": vuelve a "Por registrar" y Android vuelve a avisar por él
+function recuperarSms(codigo){
+  var p = d.porRegistrar.filter(function(x){ return x.codigo === codigo; })[0];
+  if (!p) return;
+  p.usado = false;
+  d.smsDescartados = d.smsDescartados.filter(function(c){ return c !== codigo; });
+  if (!guardar()) return;
+  deshacer = null;
+  if (!usadosSms().length) verUsados = false;
   refrescarSms();
 }
 function revisarHoy(){
@@ -1388,9 +1483,9 @@ $('inCod').addEventListener('keydown', function(e){
 $('inImp').addEventListener('keydown', function(e){
   if (e.key === 'Enter'){ e.preventDefault(); agregar(); }
 });
-// cliente: teléfono → nombre → CI → agregar
+// cliente: teléfono → CI → nombre → agregar
 $('inNom').addEventListener('keydown', function(e){
-  if (e.key === 'Enter'){ e.preventDefault(); $('inCI').focus(); }
+  if (e.key === 'Enter'){ e.preventDefault(); agregar(); }
 });
 $('inNom').addEventListener('input', pintarSugerencia);
 $('inCI').addEventListener('input', function(){
@@ -1400,7 +1495,7 @@ $('inCI').addEventListener('input', function(){
   pintarSugerencia();
 });
 $('inCI').addEventListener('keydown', function(e){
-  if (e.key === 'Enter'){ e.preventDefault(); agregar(); }
+  if (e.key === 'Enter'){ e.preventDefault(); $('inNom').focus(); }
 });
 // deja solo 8 dígitos agrupados 4-4; si pegan '+53 …' se quita el 53
 $('inTel').addEventListener('input', function(){
@@ -1410,7 +1505,7 @@ $('inTel').addEventListener('input', function(){
   pintarPrevioTel();
 });
 $('inTel').addEventListener('keydown', function(e){
-  if (e.key === 'Enter'){ e.preventDefault(); $('inNom').focus(); }
+  if (e.key === 'Enter'){ e.preventDefault(); $('inCI').focus(); }
 });
 $('inRest').addEventListener('change', function(){
   var f = this.files[0]; if (!f) return;
@@ -1453,8 +1548,8 @@ window.construirLibro = construirLibro;
 window.guardarFormatos = guardarFormatos; window.formatosFabrica = formatosFabrica;
 window.usarSms = usarSms; window.descartarSms = descartarSms; window.revisarHoy = revisarHoy;
 window.activarSms = activarSms; window.guardarRemitentes = guardarRemitentes;
-window.verSmsHoy = verSmsHoy;
-window.usarCliente = usarCliente; window.olvidarClientes = olvidarClientes;
+window.verSmsHoy = verSmsHoy; window.recuperarSms = recuperarSms; window.alternarUsados = alternarUsados;
+window.usarCliente = usarCliente; window.olvidarClientes = olvidarClientes; window.alternarLista = alternarLista;
 })();
 </script>
 <script>

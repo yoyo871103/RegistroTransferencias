@@ -10,11 +10,15 @@ const path = require('path');
 
 const raiz = path.join(__dirname, '..');
 const www = path.join(__dirname, 'www');
-const ARCHIVOS = ['index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-mask.png'];
+const ARCHIVOS = ['index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-mask.png',
+                  'fonts/InterVariable.woff2', 'fonts/LICENSE-Inter.txt'];
 
 fs.rmSync(www, { recursive: true, force: true });
 fs.mkdirSync(www);
-for (const f of ARCHIVOS) fs.copyFileSync(path.join(raiz, f), path.join(www, f));
+for (const f of ARCHIVOS){
+  fs.mkdirSync(path.dirname(path.join(www, f)), { recursive: true });
+  fs.copyFileSync(path.join(raiz, f), path.join(www, f));
+}
 fs.copyFileSync(require.resolve('@capacitor/core/dist/capacitor.js'), path.join(www, 'capacitor.js'));
 
 const destino = path.join(www, 'index.html');
