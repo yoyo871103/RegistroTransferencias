@@ -1,0 +1,13 @@
+node_modules/
+# copia generada por copiar-web.js a partir de ../index.html
+www/
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+android/app/src/main/assets/capacitor.plugins.json
+# la clave de firma NUNCA va al repositorio (guárdala aparte, con copia)
+*.jks
+*.keystore
+keystore.properties
+
+# APK generados para probar o entregar
+*.apk

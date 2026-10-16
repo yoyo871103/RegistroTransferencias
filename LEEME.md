@@ -67,25 +67,18 @@ pero es una pieza más que se puede romper y que el cajero no sabrá arreglar.
 
 ---
 
-## Camino C — APK con Capacitor (el destino final)
+## Camino C — APK con Capacitor
 
-Envuelve estos mismos archivos en una aplicación Android de verdad.
-
-```
-npm install -g @capacitor/cli
-npx cap init "Registro Transferencias" com.vtsoftware.transferencias
-npx cap add android
-   (copiar los seis archivos a la carpeta www/)
-npx cap sync
-npx cap open android      → en Android Studio: Build → Build APK
-```
+Está en la carpeta **`apk/`**, con su propio [LEEME](apk/LEEME.md). Es esta
+misma app dentro de un APK, más la **lectura de los SMS del banco** y el envío
+directo del Excel por WhatsApp o Zapya.
 
 **A favor:** pantalla completa de verdad, icono en el menú de aplicaciones,
 nada publicado en internet, sin servidor, y almacenamiento nativo que no se
-borra al limpiar la caché de Chrome. Además puedes ponerle el mismo esquema de
-licencia que el Conciliador.
+borra al limpiar la caché de Chrome.
 
-**En contra:** hay que instalar Android Studio, entre 2 y 4 GB de descarga.
+**En contra:** hay que instalar Android Studio, entre 2 y 4 GB de descarga, y
+firmar cada versión con la misma clave.
 
 ---
 

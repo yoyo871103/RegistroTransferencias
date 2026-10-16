@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#17251F">
 <title>Registro de Transferencias</title>
@@ -24,11 +24,15 @@
   .vista{display:none;flex-direction:column;height:100%}
   .vista.on{display:flex}
 
-  header{background:var(--ink);color:var(--paper);padding:10px 14px;flex:none}
+  /* en el APK (Android 15+) la app ocupa toda la pantalla: se deja sitio a las barras */
+  header{background:var(--ink);color:var(--paper);flex:none;
+    padding:calc(10px + env(safe-area-inset-top)) 14px 10px}
   .h1{font-size:19px;font-weight:600}
   .h2{font-size:12.5px;opacity:.72;margin-top:2px;font-family:var(--mono)}
   .cuerpo{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px}
-  .pie{flex:none;border-top:1px solid var(--rule);background:#fff;padding:10px 14px}
+  .pie button{padding:9px;font-size:15px}
+  .pie{flex:none;border-top:1px solid var(--rule);background:#fff;
+    padding:10px 14px calc(10px + env(safe-area-inset-bottom))}
 
   label{display:block;font-size:12px;letter-spacing:.11em;text-transform:uppercase;
         color:var(--soft);margin:14px 0 5px;font-weight:600}
@@ -49,10 +53,11 @@
   .fila>*{flex:1}
 
   .marc{display:flex;gap:1px;background:var(--rule);border:1px solid var(--rule);
-    border-radius:8px;overflow:hidden;margin-bottom:12px}
-  .marc div{flex:1;background:#fff;padding:9px 6px;text-align:center}
-  .marc b{display:block;font-size:22px;font-family:var(--mono)}
-  .marc span{font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--soft)}
+    border-radius:8px;overflow:hidden;margin-bottom:8px}
+  .marc div{flex:1;background:#fff;padding:4px 6px;text-align:center;
+    display:flex;align-items:baseline;justify-content:center;gap:7px}
+  .marc b{font-size:16px;font-family:var(--mono)}
+  .marc span{font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--soft)}
 
   .reg{display:flex;align-items:center;gap:10px;padding:11px 12px;background:#fff;
     border:1px solid var(--rule);border-radius:8px;margin-bottom:7px}
@@ -106,6 +111,14 @@
   .caja p{margin:0 0 12px;color:var(--soft);font-size:14.5px}
   .pasos{margin:0;padding-left:22px;font-size:15px;line-height:1.45}
   .pasos li{margin-bottom:7px}
+  .sug{display:none;align-items:center;gap:10px;margin-top:6px;padding:9px 12px;
+    border:1px solid var(--green);border-radius:8px;background:#F1F7F2;font-size:15px}
+  .sug.on{display:flex}
+  .sug>div{flex:1;min-width:0}
+  .sug .t{font-size:11.5px;color:var(--soft);margin-top:2px}
+  .reg.sms{border-color:var(--green);background:#F1F7F2}
+  .reg.sms .mini{padding:9px 11px}
+  .smsraw{font-size:13px;color:var(--soft);white-space:pre-wrap;word-break:break-word;margin-top:4px}
 </style>
 </head>
 <body>
@@ -149,6 +162,7 @@
       <div><b id="mCant">0</b><span>Registros</span></div>
       <div><b id="mTotal">0.00</b><span>Total CUP</span></div>
     </div>
+    <div id="bandeja"></div>
 
     <label>No. de transacción</label>
     <div class="pats" id="pats"></div>
@@ -164,19 +178,20 @@
     <div class="chips" id="chips"></div>
 
     <div class="sec">Cliente (opcional)</div>
+    <label>Teléfono</label>
+    <div class="armado">
+      <span class="fijo">+53</span><input class="ci" id="inTel" inputmode="numeric"
+        autocomplete="off" enterkeyhint="next" maxlength="14" placeholder="5555 1803">
+    </div>
+    <div class="prev" id="prevTel">—</div>
+    <div class="sug" id="sugCli"></div>
     <label>Nombre completo</label>
     <input id="inNom" autocomplete="off" autocapitalize="words" spellcheck="false"
            enterkeyhint="next" maxlength="80">
     <label>Carnet de identidad</label>
     <input class="ci" id="inCI" inputmode="numeric" autocomplete="off"
-           enterkeyhint="next" maxlength="11" placeholder="11 dígitos">
+           enterkeyhint="done" maxlength="11" placeholder="11 dígitos">
     <div class="prev" id="prevCI">—</div>
-    <label>Teléfono</label>
-    <div class="armado">
-      <span class="fijo">+53</span><input class="ci" id="inTel" inputmode="numeric"
-        autocomplete="off" enterkeyhint="done" maxlength="14" placeholder="5555 1803">
-    </div>
-    <div class="prev" id="prevTel">—</div>
 
     <div class="avi" id="aviCap"></div>
 
@@ -217,6 +232,22 @@
       <button class="gr" onclick="guardarFormatos()">Guardar formatos</button>
       <button class="ln" onclick="formatosFabrica()">Valores de fábrica</button>
     </div>
+    <div id="ajSms" style="display:none">
+      <div class="sec">Mensajes del banco (SMS)</div>
+      <div id="smsEstado" style="font-family:var(--mono);font-size:14px;line-height:1.9"></div>
+      <div style="margin-top:10px"><button class="gr" id="btnActivarSms"
+        onclick="activarSms()">Activar lectura de SMS</button></div>
+      <label>Remitentes del banco</label>
+      <input id="smsRem" autocomplete="off" spellcheck="false" placeholder="Vacío = cualquiera">
+      <p style="color:var(--soft);font-size:13px;margin:6px 0 10px">
+        Separados por coma, tal como aparecen en la app de mensajes. Vacío: se miran
+        todos los SMS y solo se toman los que traen un No. de transacción.</p>
+      <div class="avi" id="aviSms"></div>
+      <div class="fila">
+        <button class="ln" onclick="guardarRemitentes()">Guardar remitentes</button>
+        <button class="ln" onclick="verSmsHoy()">Ver SMS de hoy</button>
+      </div>
+    </div>
     <div class="sec">Datos guardados</div>
     <div id="infoDatos" style="font-family:var(--mono);font-size:14px;line-height:1.9"></div>
     <div class="avi war on" style="margin-top:18px">
@@ -224,6 +255,7 @@
       Exporta a Excel antes de borrar nada.
     </div>
     <div style="margin-top:12px"><button class="ln" onclick="borrarLote()">Borrar un lote…</button></div>
+    <div style="margin-top:10px"><button class="ln" onclick="olvidarClientes()">Olvidar los clientes recordados</button></div>
     <div style="margin-top:10px"><button class="rj" onclick="borrarTodo()">BORRAR TODOS LOS REGISTROS</button></div>
     <div class="sec">Copia de seguridad</div>
     <p style="color:var(--soft);font-size:14px;margin:0 0 10px">
@@ -289,10 +321,30 @@ var d = {};   // estado en memoria
 var lote = null;
 var editando = null;
 
-/* ---------- almacenamiento ---------- */
+/* ---------- almacenamiento ----------
+   PWA: localStorage (unos 5 MB). APK: un archivo propio de la app
+   (AlmacenPlugin.java), sin ese límite. El primer arranque del APK con esta
+   versión pasa al archivo lo que hubiera en localStorage. */
+var ALMACEN = window.AlmacenNativo || null;
+function leerDatos(){
+  if (!ALMACEN) return localStorage.getItem(CLAVE);
+  var t = ALMACEN.leer();
+  if (t) return t;
+  var viejo = null;
+  try { viejo = localStorage.getItem(CLAVE); } catch(e){}
+  if (viejo && ALMACEN.escribir(viejo)){
+    try { localStorage.removeItem(CLAVE); } catch(e){}
+  }
+  return viejo;
+}
+// lanza un error si no se pudo escribir
+function escribirDatos(t){
+  if (!ALMACEN){ localStorage.setItem(CLAVE, t); return; }
+  if (!ALMACEN.escribir(t)) throw new Error('No queda espacio en la tablet.');
+}
 function cargar(){
   try {
-    var t = localStorage.getItem(CLAVE);
+    var t = leerDatos();
     d = t ? JSON.parse(t) : {};
   } catch(e){ d = {}; }
   completar();
@@ -302,7 +354,30 @@ function completar(){
   if (!d.cajeros || !d.cajeros.length) d.cajeros = ['Cajero 1'];
   if (!d.registros) d.registros = [];
   if (!d.patrones || !d.patrones.length) d.patrones = JSON.parse(JSON.stringify(FABRICA));
+  // APK: transferencias leídas de SMS que esperan a ser registradas o descartadas
+  // solo cuentan los de hoy: los de días anteriores se olvidan al abrir
+  d.porRegistrar = (d.porRegistrar || []).filter(function(p){ return p.fecha === hoy(); });
+  if (!d.smsDescartados) d.smsDescartados = [];   // marcados como "ya usado"
+  if (!d.sms) d.sms = { remitentes: SMS_REMITENTES.slice() };
+  // clientes frecuentes: la primera vez se sacan de lo ya registrado
+  if (!d.clientes){
+    d.clientes = {};
+    d.registros.forEach(function(r){ recordarCliente(r.telefono, r.nombre, r.ci, r.fecha, true); });
+  }
 }
+
+/* Clientes frecuentes: por teléfono se recuerdan el último nombre y CI usados
+   con ese número, para proponerlos la próxima vez que pague. Se conservan
+   aunque se borren los lotes. contar: suma una vez (no al editar). */
+function recordarCliente(tel, nom, ci, fecha, contar){
+  if (!tel || (!nom && !ci)) return;
+  var c = d.clientes[tel] || (d.clientes[tel] = { nombre:'', ci:'', veces:0 });
+  if (nom) c.nombre = nom;
+  if (ci) c.ci = ci;
+  if (contar) c.veces++;
+  c.ultima = fecha;
+}
+function clienteDe(tel){ return tel ? d.clientes[tel] || null : null; }
 function patrones(){
   return d.patrones.map(function(p){
     return { id:p.id, pre:p.pre, suf:p.suf, med:LARGO - p.pre.length - p.suf.length };
@@ -317,14 +392,17 @@ function buscarPatron(id){
    cerrar la app. Quien llama debe mirar el resultado. */
 function guardar(){
   try {
-    localStorage.setItem(CLAVE, JSON.stringify(d));
+    escribirDatos(JSON.stringify(d));
+    configurarSms();   // APK: Android se entera de lo ya registrado o usado
     return true;
   } catch(e){
     var llena = e && (e.name === 'QuotaExceededError' || e.code === 22);
     alert('NO SE GUARDÓ el último cambio.\n\n' +
           (llena ? 'La memoria de la app está llena. Exporta a Excel los lotes viejos y ' +
                    'bórralos en Ajustes para liberar espacio.'
-                 : 'La tablet no permitió guardar.\n\n' + e));
+                 : ALMACEN ? 'No queda espacio en la tablet: libera espacio (fotos, ' +
+                             'videos, apps) y vuelve a intentarlo.'
+                           : 'La tablet no permitió guardar.\n\n' + e));
     cargar();
     return false;
   }
@@ -332,24 +410,56 @@ function guardar(){
 
 // último cajero o formato elegido: si no cabe no pasa nada, no merece alerta
 function guardarPreferencia(){
-  try { localStorage.setItem(CLAVE, JSON.stringify(d)); } catch(e){}
+  try { escribirDatos(JSON.stringify(d)); } catch(e){}
 }
 
-/* Chrome deja unos 5 MB por app (medido: 5 242 880 caracteres).
-   Un registro con todos los datos del cliente ocupa ~210. */
+/* PWA: Chrome deja unos 5 MB por app (medido: 5 242 880 caracteres).
+   Un registro con todos los datos del cliente ocupa ~210.
+   APK: el límite es el espacio libre de la tablet; se avisa con menos de 50 MB. */
 var CUPO = 5 * 1024 * 1024;
 var POR_REGISTRO = 210;
+var LIBRE_MINIMO = 50 * 1024 * 1024;
 function memoria(){
+  if (ALMACEN){
+    var libre = ALMACEN.libre();
+    return { nativo:true, bytes:ALMACEN.tamano(), libre:libre,
+             pct: libre < LIBRE_MINIMO / 5 ? 100 : libre < LIBRE_MINIMO ? 90 : 0 };
+  }
   var t = '';
   try { t = localStorage.getItem(CLAVE) || ''; } catch(e){}
   var usado = CLAVE.length + t.length;
   return { pct: Math.min(100, Math.round(usado * 100 / CUPO)),
            quedan: Math.max(0, Math.floor((CUPO - usado) / POR_REGISTRO)) };
 }
+function megas(b){ return (b / 1048576).toLocaleString('es-CU', { maximumFractionDigits:1 }) + ' MB'; }
+
+/* ---------- APK (Capacitor) ----------
+   En el APK, copiar-web.js añade capacitor.js y existen los plugins nativos.
+   En la PWA no existe nada de eso: NATIVO es false y todo sigue igual. */
+var NATIVO = !!(window.Capacitor && Capacitor.registerPlugin && Capacitor.isNativePlatform &&
+                Capacitor.isNativePlatform());
+var Nat = NATIVO ? { fs: Capacitor.registerPlugin('Filesystem'),
+                     share: Capacitor.registerPlugin('Share'),
+                     sms: Capacitor.registerPlugin('Sms') } : null;
+
+// En el APK sí se puede compartir cualquier archivo (en Chrome, .xlsx no).
+// datos: base64, o texto si utf8 es true.
+function enviarArchivo(nombre, datos, utf8){
+  var op = { path:nombre, data:datos, directory:'CACHE' };
+  if (utf8) op.encoding = 'utf8';
+  return Nat.fs.writeFile(op).then(function(r){
+    return Nat.share.share({ title:nombre, files:[r.uri], dialogTitle:'Enviar ' + nombre });
+  }).catch(function(e){
+    var m = String(e && (e.message || e));
+    if (!/cancel/i.test(m)) alert('No se pudo compartir el archivo.\n\n' + m);
+  });
+}
 
 // pide a Chrome que no borre los datos si la tablet se queda sin espacio
 var protegido = null;   // null = el navegador no lo permite
 function proteger(){
+  // en el APK los datos son de la app: Android no los borra por falta de espacio
+  if (NATIVO){ protegido = true; return; }
   if (!navigator.storage || !navigator.storage.persist) return;
   navigator.storage.persisted()
     .then(function(p){ return p || navigator.storage.persist(); })
@@ -438,7 +548,13 @@ function validarTel(t){
 /* ---------- inicio ---------- */
 function pintarAlertas(){
   var h = '', mem = memoria(), dias = diasSinCopia();
-  if (mem.pct >= 95)
+  if (mem.nativo){
+    if (mem.pct)
+      h += '<div class="avi ' + (mem.pct >= 95 ? 'err' : 'war') + ' on">A la tablet le quedan ' +
+           megas(mem.libre) + ' libres. Libera espacio (fotos, videos, apps) para que la app ' +
+           'pueda seguir guardando.</div>';
+  }
+  else if (mem.pct >= 95)
     h += '<div class="avi err on">Memoria casi llena (' + mem.pct + ' %). Exporta a Excel ' +
          'y borra lotes viejos en Ajustes, o pronto no se podrá registrar nada.</div>';
   else if (mem.pct >= 80)
@@ -450,6 +566,14 @@ function pintarAlertas(){
                         : 'Hace ' + dias + ' días de la última copia de seguridad.') +
          '<div style="margin-top:8px"><button class="ln mini" onclick="respaldar()">' +
          'Guardar copia ahora</button></div></div>';
+  if (NATIVO){
+    var pend = pendientesSms().length;
+    if (pend)
+      h += '<div class="avi ok on">' + (pend === 1 ? 'Hay 1 transferencia' : 'Hay ' + pend +
+           ' transferencias') + ' de SMS por registrar. Abre un lote para registrarlas.</div>';
+    if (smsEstado && smsEstado.sms !== 'granted')
+      h += '<div class="avi war on">La lectura de SMS está desactivada. Actívala en Ajustes.</div>';
+  }
   $('alertas').innerHTML = h;
 }
 
@@ -528,6 +652,7 @@ function pintarCaptura(){
   });
   $('listaReg').innerHTML = h || '<div class="vacio">Aún no hay registros en este lote.</div>';
   $('btnAgregar').textContent = editando ? 'GUARDAR CAMBIOS' : 'AGREGAR';
+  pintarBandeja();
 }
 
 function pintarPatrones(){
@@ -572,10 +697,42 @@ function pintarPrevioCI(){
 }
 function pintarPrevioTel(){
   var n = digitosTel($('inTel').value), e = $('prevTel');
+  pintarSugerencia();
   if (!n){ e.textContent = '—'; e.className = 'prev'; return; }
   var v = validarTel(n);
   if (v.ok){ e.textContent = v.valor; e.className = 'prev ok'; }
   else { e.textContent = n.length + ' de 8 dígitos'; e.className = 'prev'; }
+}
+// cliente conocido por ese teléfono: se propone su nombre y CI (salvo que ya estén puestos)
+function clienteDelFormulario(){
+  var v = validarTel($('inTel').value);
+  return v.ok ? clienteDe(v.valor) : null;
+}
+function pintarSugerencia(){
+  var e = $('sugCli'), c = clienteDelFormulario();
+  if (!c || (limpiarNombre($('inNom').value) === c.nombre && $('inCI').value === c.ci)){
+    e.className = 'sug'; e.innerHTML = ''; return;
+  }
+  e.className = 'sug on';
+  e.innerHTML = '<div><b>' + esc(c.nombre || 'Sin nombre') + '</b>' +
+    (c.ci ? ' · CI ' + esc(c.ci) : '') +
+    '<div class="t">Cliente conocido · ' + c.veces + (c.veces === 1 ? ' vez' : ' veces') + '</div></div>' +
+    '<button class="gr mini" onclick="usarCliente()">Usar datos</button>';
+}
+function usarCliente(){
+  var c = clienteDelFormulario();
+  if (!c) return;
+  if (c.nombre) $('inNom').value = c.nombre;
+  if (c.ci){ $('inCI').value = c.ci; pintarPrevioCI(); }
+  pintarSugerencia();
+}
+function olvidarClientes(){
+  var n = Object.keys(d.clientes).length;
+  if (!n){ alert('No hay clientes recordados.'); return; }
+  if (!confirm('Olvidar los ' + n + ' clientes recordados (nombre y CI por teléfono).\n\n' +
+               'Los registros no se tocan. ¿Continuar?')) return;
+  d.clientes = {};
+  guardar(); pintarAjustes();
 }
 
 function ponerImporte(v){ $('inImp').value = Number(v).toFixed(2); $('inImp').focus(); }
@@ -617,6 +774,9 @@ function agregar(){
       fecha:lote.fecha, cajero:lote.cajero, codigo:cod, importe:imp, hora:ahora(),
       nombre:nom, ci:ci, telefono:tel });
   }
+  // si venía de un SMS, deja de estar pendiente
+  d.porRegistrar = d.porRegistrar.filter(function(p){ return p.codigo !== cod; });
+  recordarCliente(tel, nom, ci, lote.fecha, !editando);
   if (!guardar()){
     // se deja lo tecleado para reintentar después de liberar espacio
     aviso('aviCap', 'NO se guardó ' + cod + '. La memoria está llena: exporta y borra ' +
@@ -664,6 +824,7 @@ function guardarEdicion(id){
   if (!vtel.ok){ alert(vtel.error); return; }
   r.codigo = cod; r.importe = imp; r.nombre = limpiarNombre($('edNom').value); r.ci = ci;
   r.telefono = vtel.valor;
+  recordarCliente(r.telefono, r.nombre, r.ci, r.fecha, false);
   guardar(); cerrarModal(); pintarCaptura();   // si falla, guardar() ya avisó y deshizo
 }
 function eliminar(id){
@@ -724,6 +885,11 @@ function construirLibro(registros){
 function descargar(registros, nombre){
   if (!registros.length){ alert('No hay registros que exportar.'); return; }
   try {
+    if (NATIVO){
+      enviarArchivo(nombre, XLSX.write(construirLibro(registros),
+                    { bookType:'xlsx', type:'base64', cellDates:true }));
+      return;
+    }
     XLSX.writeFile(construirLibro(registros), nombre,
                    { bookType:'xlsx', cellDates:true });
   } catch(e){
@@ -787,14 +953,18 @@ function pintarAjustes(){
     'Lotes: <b>' + Object.keys(f).length + '</b><br>' +
     'Cajeros: <b>' + d.cajeros.length + '</b><br>' +
     'Total: <b>' + fmt(suma(d.registros)) + ' CUP</b><br>' +
-    'Memoria usada: <b>' + mem.pct + ' %</b> (caben ≈ ' + entero(mem.quedan) +
-      ' registros más)<br>' +
+    (mem.nativo
+      ? 'Datos: <b>' + megas(mem.bytes) + '</b> (libre en la tablet: ' + megas(mem.libre) + ')<br>'
+      : 'Memoria usada: <b>' + mem.pct + ' %</b> (caben ≈ ' + entero(mem.quedan) +
+        ' registros más)<br>') +
+    'Clientes recordados: <b>' + Object.keys(d.clientes).length + '</b><br>' +
     'Protección contra borrado: <b>' +
       (protegido === true ? 'activa' :
        protegido === false ? 'no concedida (instala la app para obtenerla)' : 'no disponible') +
       '</b><br>' +
     'Última copia: <b>' + (d.ultimaCopia ? fechaLarga(d.ultimaCopia) : 'nunca') + '</b>';
   pintarFormatos();
+  pintarSmsAjustes();
 }
 function pintarFormatos(){
   $('formatos').innerHTML = d.patrones.map(function(p, i){
@@ -902,13 +1072,286 @@ function borrarTodo(){
 }
 function respaldar(){
   d.ultimaCopia = hoy();
-  var t = JSON.stringify(d);
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([t], {type:'application/json'}));
-  a.download = 'respaldo_transferencias_' + hoy() + '.json';
-  a.click();
+  var t = JSON.stringify(d), nombre = 'respaldo_transferencias_' + hoy() + '.json';
+  if (NATIVO) enviarArchivo(nombre, t, true);
+  else {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([t], {type:'application/json'}));
+    a.download = nombre;
+    a.click();
+  }
   guardar();
   pintarInicio(); pintarAjustes();
+}
+
+/* ---------- APK: transferencias detectadas en los SMS ----------
+   Android guarda los SMS del banco que llegan, aunque la app esté cerrada
+   (SmsReceiver/Bandeja en apk/android). La app los recoge al abrirse o al
+   volver a primer plano, los analiza aquí y quedan en d.porRegistrar hasta
+   que el cajero los registra o los marca como ya usados. Todo se identifica
+   por el No. de transacción: no se ofrece un SMS cuyo número ya está
+   registrado (también si el cajero lo tecleó antes de que llegara el SMS),
+   ni uno marcado como usado. Solo se ofrecen los SMS llegados hoy.
+
+   Formato real de PAGOxMOVIL (octubre de 2026):
+     El titular del telefono 5351112233 le ha realizado una transferencia a la
+     cuenta 9999000011112222 de 10000.00 CUP. Nro. Transaccion KW601YFBRP999.
+     Fecha: 15/10/2026.
+   y sin teléfono: "Se ha realizado una transferencia a la cuenta … de …". */
+var SMS_REMITENTES = ['PAGOxMOVIL'];
+var SMS_CODIGO = /Transacci[oó]n\s*:?\s*([A-Z0-9]{6,20})\b/i;   // lo que va tras "Nro. Transaccion"
+var SMS_GENERICO = '[A-Z]{2}\\d[A-Z0-9]{10}';   // si cambia el texto: dos letras, un dígito, 13 en total
+var SMS_IMPORTES = [
+  /\bde\s+(\d[\d.,]*\d|\d)\s*CUP\b/i,
+  /\b(\d[\d.,]*\d|\d)\s*(?:CUP|MN|pesos)\b/i
+];
+var SMS_TELEFONO = /tel[eé]fono\s*:?\s*\+?(\d{8,10})\b/i;
+var smsEstado = null;   // permisos según Android: { sms, notificaciones }
+
+function medianoche(){ var f = new Date(); f.setHours(0,0,0,0); return f.getTime(); }
+function isoDe(f){ return f.getFullYear() + '-' + p2(f.getMonth()+1) + '-' + p2(f.getDate()); }
+function horaDe(ms){ var f = new Date(ms); return p2(f.getHours()) + ':' + p2(f.getMinutes()); }
+function yaRegistrado(codigo){ return d.registros.some(function(r){ return r.codigo === codigo; }); }
+// los que se ofrecen: de hoy y sin registrar
+function pendientesSms(){
+  var h = hoy();
+  return d.porRegistrar.filter(function(p){ return p.fecha === h && !yaRegistrado(p.codigo); });
+}
+
+// 1,250.00 · 1.250,00 · 1250.00 · 1250 → número; null si no es un importe
+function numeroImporte(t){
+  var m = /^(.*?)[.,](\d{2})$/.exec(t);
+  var n = parseFloat((m ? m[1] : t).replace(/[.,\s]/g,'') + (m ? '.' + m[2] : ''));
+  return isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null;
+}
+// expresiones del No. de transacción: primero los formatos de Ajustes, luego la genérica
+function regexCodigos(){
+  return d.patrones.map(function(p){
+    return p.pre + '[A-Z0-9]{' + (LARGO - p.pre.length - p.suf.length) + '}' + p.suf;
+  }).concat([SMS_GENERICO]);
+}
+// { codigo, importe, telefono } o null si el SMS no es una transferencia
+function analizarSms(texto){
+  var t = String(texto || ''), may = t.toUpperCase(), codigo = null, importe = null;
+  var mc = SMS_CODIGO.exec(may);
+  if (mc) codigo = mc[1];
+  else regexCodigos().some(function(r){
+    var m = new RegExp('\\b' + r + '\\b').exec(may);
+    if (m) codigo = m[0];
+    return !!m;
+  });
+  if (!codigo) return null;
+  SMS_IMPORTES.some(function(r){
+    var m = r.exec(t);
+    if (m) importe = numeroImporte(m[1]);
+    return importe != null;
+  });
+  var mt = SMS_TELEFONO.exec(t), tel = mt ? validarTel(mt[1]) : null;
+  return { codigo:codigo, importe:importe, telefono: tel && tel.ok ? tel.valor : '' };
+}
+function remitenteAceptado(remitente){
+  var rs = d.sms.remitentes;
+  return !rs.length || rs.some(function(r){
+    return r.trim().toUpperCase() === String(remitente || '').trim().toUpperCase(); });
+}
+
+// añade a d.porRegistrar los SMS que traen una transferencia nueva; devuelve cuántas
+function incorporarSms(lista){
+  var nuevos = 0, desde = medianoche();
+  lista.forEach(function(s){
+    if (s.fecha < desde || !remitenteAceptado(s.remitente)) return;   // solo los de hoy
+    var a = analizarSms(s.cuerpo);
+    if (!a || yaRegistrado(a.codigo) || d.smsDescartados.indexOf(a.codigo) >= 0 ||
+        d.porRegistrar.some(function(p){ return p.codigo === a.codigo; })) return;
+    var f = new Date(s.fecha);
+    d.porRegistrar.push({ codigo:a.codigo, importe:a.importe, telefono:a.telefono,
+      remitente:s.remitente || '', fecha:isoDe(f), hora:horaDe(s.fecha), texto:s.cuerpo });
+    nuevos++;
+  });
+  return nuevos;
+}
+
+/* Envía a Android lo que necesita para decidir, con la app cerrada, qué SMS
+   guardar y notificar. 'excluir': números ya registrados o marcados como usados,
+   para que un SMS que llega tarde (el cajero ya tecleó el número) no avise.
+   Android busca el código en el texto pasado a mayúsculas. Se llama al abrir y
+   cada vez que se guarda. */
+function configurarSms(){
+  if (!NATIVO) return;
+  var excluir = d.registros.slice(-500).map(function(r){ return r.codigo; })
+                 .concat(d.smsDescartados.slice(-500));
+  Nat.sms.configurar({ remitentes:d.sms.remitentes, excluir:excluir,
+    codigo:'TRANSACCI[OÓ]N\\s*:?\\s*([A-Z0-9]{6,20})\\b|\\b(?:' + regexCodigos().join('|') + ')\\b',
+    importe:'\\bde\\s+(\\d[\\d.,]*\\d|\\d)\\s*CUP' }).catch(function(){});
+}
+function refrescarEstadoSms(){
+  if (!NATIVO) return;
+  Nat.sms.estado().then(function(st){ smsEstado = st; refrescarSms(); }).catch(function(){});
+}
+// recoge los SMS que Android guardó; si no caben, se quedan allí para otro intento
+function recogerSms(){
+  if (!NATIVO) return;
+  Nat.sms.pendientes().then(function(r){
+    var lista = r.sms || [];
+    if (!lista.length) return;
+    if (incorporarSms(lista) && !guardar()) return;
+    refrescarSms();
+    return Nat.sms.quitar({ claves: lista.map(function(s){ return s.clave; }) });
+  }).catch(function(e){ console.error(e); });
+}
+function refrescarSms(){ pintarAlertas(); pintarBandeja(); pintarSmsAjustes(); }
+
+function pintarBandeja(){
+  var e = $('bandeja');
+  if (!NATIVO){ e.innerHTML = ''; return; }
+  var ps = pendientesSms().sort(function(a,b){
+    return (b.fecha + b.hora).localeCompare(a.fecha + a.hora); });
+  var h = '';
+  if (ps.length){
+    h += '<div class="sec" style="margin-top:4px">Por registrar (SMS) · ' + ps.length + '</div>';
+    ps.forEach(function(p){
+      h += '<div class="reg sms"><div class="c">' + esc(p.codigo) +
+           '<div class="t"><span>' + esc(p.hora) + '</span>' +
+             (clienteDe(p.telefono) && clienteDe(p.telefono).nombre
+               ? ' · <span>' + esc(clienteDe(p.telefono).nombre) + '</span>' : '') +
+           '</div></div>' +
+           '<div class="m">' + (p.importe != null ? fmt(p.importe) : '¿importe?') + '</div>' +
+           '<button class="gr mini" onclick="usarSms(\'' + p.codigo + '\')">Registrar</button>' +
+           '<button class="ln mini" onclick="descartarSms(\'' + p.codigo + '\')">Ya usado</button>' +
+           '</div>';
+    });
+  }
+  h += '<div style="margin-bottom:6px"><button class="ln mini" onclick="revisarHoy()">' +
+       'Revisar SMS de hoy</button></div>';
+  e.innerHTML = h;
+}
+// pone el código y el importe del SMS en el formulario; el cajero revisa y toca AGREGAR
+function usarSms(codigo){
+  var p = d.porRegistrar.filter(function(x){ return x.codigo === codigo; })[0];
+  if (!p) return;
+  var pt = patrones().filter(function(x){
+    return x.id !== OTRO.id && codigo.length === LARGO && codigo.indexOf(x.pre) === 0 &&
+           codigo.slice(LARGO - x.suf.length) === x.suf;
+  })[0] || OTRO;
+  ponerPatron(pt.id);
+  $('inCod').value = codigo.slice(pt.pre.length, codigo.length - pt.suf.length);
+  pintarPrevio();
+  $('inImp').value = p.importe != null ? p.importe.toFixed(2) : '';
+  // el teléfono de quien pagó, si el SMS lo trae; nombre y CI se dejan como estén
+  if (p.telefono){
+    var n = digitosTel(p.telefono);
+    $('inTel').value = n.slice(0,4) + ' ' + n.slice(4);
+    pintarPrevioTel();
+  }
+  if (p.importe == null){
+    aviso('aviCap', 'El SMS no trae un importe que la app entienda: escríbelo y toca AGREGAR.', 'war');
+    $('inImp').focus();
+  } else {
+    aviso('aviCap', 'Datos del SMS cargados. Añade el cliente si quieres y toca AGREGAR.', 'ok');
+    $('inCod').blur();
+    $('btnAgregar').scrollIntoView({ block:'center' });
+  }
+}
+function descartarSms(codigo){
+  var p = d.porRegistrar.filter(function(x){ return x.codigo === codigo; })[0];
+  if (!p || !confirm('¿Marcar ' + codigo +
+      (p.importe != null ? ' de ' + fmt(p.importe) + ' CUP' : '') +
+      ' como ya usado?\n\nNo se registra y no se volverá a ofrecer.')) return;
+  d.smsDescartados.push(codigo);
+  if (d.smsDescartados.length > 1000) d.smsDescartados.splice(0, d.smsDescartados.length - 1000);
+  d.porRegistrar = d.porRegistrar.filter(function(x){ return x.codigo !== codigo; });
+  guardar();
+  refrescarSms();
+}
+function revisarHoy(){
+  Nat.sms.leerDesde({ desde:medianoche() }).then(function(r){
+    var n = incorporarSms(r.sms || []);
+    if (n && !guardar()) return;
+    refrescarSms();
+    var m = n ? (n === 1 ? '1 transferencia nueva' : n + ' transferencias nuevas') +
+                ' en los SMS de hoy.'
+              : 'No hay transferencias nuevas en los SMS de hoy.';
+    aviso($('vCaptura').className.indexOf('on') >= 0 ? 'aviCap' : 'aviSms', m, n ? 'ok' : 'war');
+  }).catch(errorSms);
+}
+function errorSms(e){
+  if (e && e.code === 'SIN_PERMISO')
+    alert('La lectura de SMS está desactivada.\n\nActívala en Ajustes → Mensajes del banco (SMS).');
+  else alert('No se pudieron leer los SMS.\n\n' + (e && e.message || e));
+}
+
+/* Ajustes → Mensajes del banco (SMS) */
+function pintarSmsAjustes(){
+  if (!NATIVO) return;
+  $('ajSms').style.display = '';
+  var st = smsEstado || {};
+  $('smsEstado').innerHTML =
+    'Lectura de SMS: <b>' + (st.sms === 'granted' ? 'activa' : st.sms ? 'desactivada' : '…') +
+      '</b><br>' +
+    'Notificaciones: <b>' + (st.notificaciones === 'granted' ? 'activas' :
+                             st.notificaciones ? 'desactivadas' : '…') + '</b><br>' +
+    'Por registrar: <b>' + pendientesSms().length + '</b>';
+  $('btnActivarSms').style.display =
+    st.sms === 'granted' && st.notificaciones === 'granted' ? 'none' : '';
+  if (document.activeElement !== $('smsRem')) $('smsRem').value = d.sms.remitentes.join(', ');
+}
+function activarSms(){
+  Nat.sms.activar().then(function(st){
+    smsEstado = st;
+    refrescarSms();
+    if (st.sms !== 'granted'){ guiaPermisos(); return; }
+    if (st.notificaciones !== 'granted')
+      aviso('aviSms', 'SMS activado, pero las notificaciones no: no avisará cuando llegue ' +
+                      'una transferencia; aparecerán al abrir la app.', 'war');
+    else aviso('aviSms', 'Lectura de SMS activada.', 'ok');
+    revisarHoy();
+  }).catch(function(e){ alert('No se pudo pedir el permiso.\n\n' + (e && e.message || e)); });
+}
+// Android 13+ bloquea permisos sensibles en apps instaladas fuera de Google Play
+function guiaPermisos(){
+  modal('<h3>Android no dio el permiso</h3>' +
+    '<p>En tablets con Android 13 o más nuevo, a las apps instaladas fuera de Google Play ' +
+    'hay que permitirles esto a mano.</p>' +
+    '<ol class="pasos">' +
+    '<li>Abre <b>Ajustes</b> de Android → <b>Aplicaciones</b> → <b>Registro de Transferencias</b>.</li>' +
+    '<li>Toca <b>⋮</b> (arriba a la derecha) → <b>Permitir ajustes restringidos</b>. ' +
+      'Si no aparece, sigue con el paso 3.</li>' +
+    '<li>Entra en <b>Permisos</b> → <b>SMS</b> → <b>Permitir</b>.</li>' +
+    '<li>Vuelve aquí y toca <b>Activar lectura de SMS</b> otra vez.</li>' +
+    '</ol>' +
+    '<div style="margin-top:16px"><button class="gr" onclick="cerrarModal()">Entendido</button></div>');
+}
+function guardarRemitentes(){
+  d.sms.remitentes = $('smsRem').value.split(',')
+    .map(function(r){ return r.trim(); }).filter(Boolean);
+  if (!guardar()) return;
+  configurarSms();
+  pintarSmsAjustes();
+  aviso('aviSms', d.sms.remitentes.length
+    ? 'Remitentes guardados: ' + d.sms.remitentes.join(', ') + '.'
+    : 'Sin remitentes: se mirarán todos los SMS.', 'ok');
+}
+// muestra los SMS de hoy y cómo los entiende la app: sirve para ajustar remitentes
+function verSmsHoy(){
+  Nat.sms.leerDesde({ desde:medianoche() }).then(function(r){
+    var todos = r.sms || [], lista = todos.slice(-50).reverse();
+    var h = '<h3>SMS de hoy</h3><p>' + todos.length + ' mensajes' +
+            (todos.length > 50 ? ' (se muestran los 50 últimos)' : '') +
+            '. Debajo de cada uno, lo que entiende la app.</p>';
+    lista.forEach(function(s){
+      var a = analizarSms(s.cuerpo);
+      var res = !remitenteAceptado(s.remitente) ? '— remitente no está en la lista' :
+                a ? '✓ ' + a.codigo + ' · ' + (a.importe != null ? fmt(a.importe) + ' CUP' : 'sin importe') +
+                    (a.telefono ? ' · ' + a.telefono : '')
+                  : '✗ no parece una transferencia';
+      h += '<div class="reg" style="display:block"><div class="t">' + esc(s.remitente) + ' · ' +
+           horaDe(s.fecha) + '</div><div class="smsraw">' + esc(s.cuerpo) + '</div>' +
+           '<div class="t" style="margin-top:4px"><b>' + esc(res) + '</b></div></div>';
+    });
+    if (!lista.length) h += '<div class="vacio">No hay SMS de hoy.</div>';
+    h += '<div style="margin-top:14px"><button class="ln" onclick="cerrarModal()">Cerrar</button></div>';
+    modal(h);
+  }).catch(errorSms);
 }
 
 /* ---------- modal ---------- */
@@ -921,6 +1364,16 @@ proteger();
 patron = buscarPatron(d.ultimoPatron);
 pintarInicio();
 pintarPatrones();
+if (NATIVO){
+  configurarSms();
+  refrescarEstadoSms();
+  recogerSms();
+  // llegó un SMS con la app abierta, o la app vuelve a primer plano (p. ej. al tocar la notificación)
+  Nat.sms.addListener('sms', recogerSms);
+  document.addEventListener('visibilitychange', function(){
+    if (!document.hidden){ refrescarEstadoSms(); recogerSms(); }
+  });
+}
 
 $('inCod').addEventListener('input', function(){
   var v = this.value.toUpperCase().replace(/[^A-Z0-9]/g,'');
@@ -935,16 +1388,19 @@ $('inCod').addEventListener('keydown', function(e){
 $('inImp').addEventListener('keydown', function(e){
   if (e.key === 'Enter'){ e.preventDefault(); agregar(); }
 });
+// cliente: teléfono → nombre → CI → agregar
 $('inNom').addEventListener('keydown', function(e){
   if (e.key === 'Enter'){ e.preventDefault(); $('inCI').focus(); }
 });
+$('inNom').addEventListener('input', pintarSugerencia);
 $('inCI').addEventListener('input', function(){
   var v = this.value.replace(/\D/g,'');
   if (v !== this.value) this.value = v;
   pintarPrevioCI();
+  pintarSugerencia();
 });
 $('inCI').addEventListener('keydown', function(e){
-  if (e.key === 'Enter'){ e.preventDefault(); $('inTel').focus(); }
+  if (e.key === 'Enter'){ e.preventDefault(); agregar(); }
 });
 // deja solo 8 dígitos agrupados 4-4; si pegan '+53 …' se quita el 53
 $('inTel').addEventListener('input', function(){
@@ -954,7 +1410,7 @@ $('inTel').addEventListener('input', function(){
   pintarPrevioTel();
 });
 $('inTel').addEventListener('keydown', function(e){
-  if (e.key === 'Enter'){ e.preventDefault(); agregar(); }
+  if (e.key === 'Enter'){ e.preventDefault(); $('inNom').focus(); }
 });
 $('inRest').addEventListener('change', function(){
   var f = this.files[0]; if (!f) return;
@@ -995,13 +1451,19 @@ window.confirmarBorrarLote = confirmarBorrarLote; window.borrarTodo = borrarTodo
 window.respaldar = respaldar; window.cerrarModal = cerrarModal;
 window.construirLibro = construirLibro;
 window.guardarFormatos = guardarFormatos; window.formatosFabrica = formatosFabrica;
+window.usarSms = usarSms; window.descartarSms = descartarSms; window.revisarHoy = revisarHoy;
+window.activarSms = activarSms; window.guardarRemitentes = guardarRemitentes;
+window.verSmsHoy = verSmsHoy;
+window.usarCliente = usarCliente; window.olvidarClientes = olvidarClientes;
 })();
 </script>
 <script>
 /* Registro del service worker. Solo funciona servido por https:// o localhost;
    desde file:// el navegador lo rechaza y la app sigue andando igual, pero
    sin instalarse como aplicación. */
-if ('serviceWorker' in navigator) {
+// En el APK no hace falta: la app ya está dentro y se actualiza con un APK nuevo.
+if ('serviceWorker' in navigator &&
+    !(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform())) {
   window.addEventListener('load', function(){
     navigator.serviceWorker.register('sw.js').then(function(reg){
       reg.addEventListener('updatefound', function(){

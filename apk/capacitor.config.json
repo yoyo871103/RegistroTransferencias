@@ -1,0 +1,8 @@
+{
+  "appId": "com.vtsoftware.transferencias",
+  "appName": "Registro de Transferencias",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false
+  }
+}

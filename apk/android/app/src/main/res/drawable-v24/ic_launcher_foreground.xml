@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- El mismo dibujo que icon-mask.png de la PWA (hoja con dos columnas de importes),
+     pasado de 512 px a la cuadrícula de 108 dp de los iconos adaptables. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#FBFCF9" android:pathData="M28.05,28.05h51.9v51.9h-51.9z" />
+    <!-- columna izquierda -->
+    <path android:fillColor="#C0CFBC"
+        android:pathData="M34.8,38.39h20.25v2.95h-20.25zM34.8,46.41h20.25v2.95h-20.25zM34.8,54.42h20.25v2.95h-20.25zM34.8,62.44h20.25v2.95h-20.25zM34.8,70.45h20.25v2.95h-20.25z" />
+    <!-- columna derecha: verdes y claras alternadas -->
+    <path android:fillColor="#0E6B4A"
+        android:pathData="M59.06,38.39h14.12v2.95h-14.12zM59.06,54.42h14.12v2.95h-14.12zM59.06,70.45h14.12v2.95h-14.12z" />
+    <path android:fillColor="#C0CFBC"
+        android:pathData="M59.06,46.41h14.12v2.95h-14.12zM59.06,62.44h14.12v2.95h-14.12z" />
+</vector>

@@ -1,0 +1,24 @@
+// Desde algunas redes (p. ej. Starlink en la región) Google responde 404 a
+// maven.google.com / dl.google.com, y sin ese repositorio no se puede compilar
+// (allí están el plugin de Android y las librerías androidx).
+// Este script añade un espejo público del repositorio de Google, por delante
+// de los demás. Se usa solo al compilar: gradlew -I ../espejo-google.gradle ...
+// Si Google responde bien desde tu red, no hace falta.
+def ESPEJO = 'https://maven.aliyun.com/repository/google'
+
+settingsEvaluated { settings ->
+    settings.pluginManagement.repositories {
+        maven { url ESPEJO }
+    }
+}
+
+allprojects {
+    buildscript {
+        repositories {
+            maven { url ESPEJO }
+        }
+    }
+    repositories {
+        maven { url ESPEJO }
+    }
+}
