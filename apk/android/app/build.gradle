@@ -10,6 +10,12 @@ if (!archivoSecreto.exists()) {
 }
 def secretoLicencias = archivoSecreto.text.trim()
 
+// Firma del APK de entrega (apk/keystore.properties + apk/firma/*.jks, fuera del
+// repositorio). Sin ellos se puede compilar el de pruebas, pero no el de entrega.
+def propsFirma = new Properties()
+def archivoFirma = rootProject.file('../keystore.properties')
+if (archivoFirma.exists()) archivoFirma.withInputStream { propsFirma.load(it) }
+
 android {
     buildFeatures {
         buildConfig = true
@@ -30,8 +36,19 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (archivoFirma.exists()) {
+                storeFile rootProject.file('../' + propsFirma['storeFile'])
+                storePassword propsFirma['storePassword']
+                keyAlias propsFirma['keyAlias']
+                keyPassword propsFirma['keyPassword']
+            }
+        }
+    }
     buildTypes {
         release {
+            if (archivoFirma.exists()) signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }

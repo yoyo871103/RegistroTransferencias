@@ -152,8 +152,18 @@ adb emu sms send PAGOxMOVIL "El titular del telefono 5351112233 le ha realizado 
 El segundo comando simula que llega un SMS (el texto es inventado). También se
 puede desde el emulador: **⋯ → Phone → SMS message**.
 
-Para entregar a clientes hace falta un APK **firmado** (Build → Generate Signed
-App Bundle or APK). La clave de firma (`.jks`) es lo más importante del proyecto:
+**APK de entrega** (firmado), en la misma carpeta `android`:
+
+```
+gradlew -I ..\espejo-google.gradle assembleRelease
+```
+
+Sale en `android/app/build/outputs/apk/release/app-release.apk`; cópialo a
+`apk/entrega/RegistroTransferencias-<versión>.apk` para llevarlo al cliente.
+Usa la clave `apk/firma/registro-transferencias.jks` y su contraseña en
+`apk/keystore.properties` (ninguno de los dos va al repositorio).
+
+La clave de firma es lo más importante del proyecto, junto con `licencia.secreto`:
 
 - **Sin ella no se pueden publicar actualizaciones**: Android rechaza un APK
   nuevo firmado con otra clave, y el cliente tendría que desinstalar (y perder
