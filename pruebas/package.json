@@ -1,0 +1,14 @@
+{
+  "name": "registro-transferencias-pruebas",
+  "private": true,
+  "description": "Pruebas automáticas: PWA en Chrome (puppeteer) y APK en el emulador de Android (adb).",
+  "scripts": {
+    "unitarias": "node extraer-app.js && node t-ci.js && node t-sms.js && node t-enzona.js",
+    "pwa": "node prueba.js && node prueba-tel.js && node prueba-memoria.js && node prueba-clientes.js && node prueba-apk.js",
+    "emulador": "node prueba-emulador.js && node prueba-enzona.js && node prueba-licencia.js",
+    "todo": "npm run unitarias && npm run pwa"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^23.11.1"
+  }
+}
