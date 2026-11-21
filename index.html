@@ -169,6 +169,16 @@
   .sug>div{flex:1;min-width:0}
   .sug .t{font-size:12px;color:var(--color-gray-500);margin-top:1px}
   .texto{color:var(--color-gray-500);font-size:13px;margin:0 0 4px}
+  .contacto{margin-top:14px;padding:12px;border:1px solid var(--color-gray-200);border-radius:var(--radius-lg);
+    background:var(--surface-1);font-size:14px}
+  .contacto .ct{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--color-gray-500);font-weight:600}
+  .contacto .cn{margin-top:4px;color:var(--color-gray-800);font-weight:500}
+  .contacto .cd{color:var(--color-gray-600);font-family:var(--font-mono);font-size:13px}
+  .contacto .cb{display:flex;gap:8px;margin-top:10px}
+  .contacto .ca{flex:1;display:flex;align-items:center;justify-content:center;height:var(--alto);border-radius:var(--radius-lg);
+    border:1px solid var(--color-gray-300);background:var(--surface-1);color:var(--color-gray-700);font-weight:500;
+    text-decoration:none}
+  .contacto .ca.wa{background:var(--color-primary-600);border-color:var(--color-primary-600);color:var(--color-white)}
   .codtab{display:flex;align-items:center;gap:8px;padding:8px 8px 8px 12px;background:var(--surface-1);
     border:1px solid var(--color-gray-200);border-radius:var(--radius-lg)}
   .codtab b{flex:1;font-family:var(--font-mono);font-size:19px;letter-spacing:.08em;color:var(--color-gray-800)}
@@ -305,6 +315,8 @@
         <button class="ln" onclick="verSmsHoy()">Ver SMS de hoy</button>
       </div>
     </div>
+    <div class="sec">Soporte</div>
+    <div id="ajContacto"></div>
     <div class="sec">Datos guardados</div>
     <div id="infoDatos" style="font-family:var(--mono);font-size:14px;line-height:1.9"></div>
     <div class="avi war on" style="margin-top:18px">
@@ -330,7 +342,7 @@
 <div class="vista" id="vLicencia">
   <header><div class="h1">Activar la app</div><div class="h2">Registro de Transferencias</div></header>
   <div class="cuerpo">
-    <p class="texto">Esta tablet todavía no tiene licencia. Envía el código de esta tablet a
+    <p class="texto" id="licTexto">Esta tablet todavía no tiene licencia. Envía el código de esta tablet a
       tu proveedor: te devolverá un código de licencia para escribirlo aquí abajo.</p>
     <label>Código de esta tablet</label>
     <div class="codtab"><b id="licTablet">—</b>
@@ -341,7 +353,9 @@
            placeholder="XXXX-XXXX-XXXX" enterkeyhint="done">
     <div class="avi" id="aviLic"></div>
     <div style="margin-top:12px"><button class="gr" onclick="activarLicencia()">Activar</button></div>
+    <div id="licContacto"></div>
   </div>
+  <div class="pie" id="licPie" style="display:none"><button class="ln" onclick="ver('vAjustes');pintarAjustes()">Volver</button></div>
 </div>
 
 <div class="modal" id="modal"><div class="caja" id="cajaModal"></div></div>
@@ -539,6 +553,56 @@ function enviarArchivo(nombre, datos, utf8){
    pantalla de activación y Android no lee los SMS. La PWA no tiene licencia. */
 var LICENCIA = window.LicenciaNativa || null;
 function licenciaActiva(){ return !LICENCIA || LICENCIA.activa(); }
+/* {activa, temporal, vence, hoy, ancla, motivo ('' | 'vencida' | 'reloj')}; los días
+   se cuentan desde el 2026-01-01. Una temporal vale hasta el final del día 'vence'. */
+function estadoLicencia(){
+  try { return JSON.parse(LICENCIA.estado()); }
+  catch(e){ return { activa: LICENCIA.activa(), temporal: false }; }
+}
+function fechaDia(n){
+  var f = new Date(Date.UTC(2026, 0, 1 + n));
+  return ('0' + f.getUTCDate()).slice(-2) + '/' + ('0' + (f.getUTCMonth() + 1)).slice(-2) + '/' + f.getUTCFullYear();
+}
+/* Contacto para pedir la licencia y para soporte (el mismo en las tres apps de VT Software).
+   Los enlaces abren WhatsApp o el correo con el mensaje ya escrito (en el APK, Capacitor
+   los pasa a Android; en el navegador funcionan igual). */
+var CONTACTO = { nombre:'Yosvel Vasallo Tabares', empresa:'VT Software', lugar:'Artemisa',
+                 correo:'yoyo871103@gmail.com', telefono:'+53 5555 1803', whatsapp:'5355551803' };
+function htmlContacto(titulo, asunto, mensaje){
+  return '<div class="contacto"><div class="ct">' + titulo + '</div>' +
+    '<div class="cn">' + CONTACTO.nombre + ' · ' + CONTACTO.empresa + ', ' + CONTACTO.lugar + '</div>' +
+    '<div class="cd">' + CONTACTO.correo + ' · ' + CONTACTO.telefono + '</div>' +
+    '<div class="cb"><a class="ca wa" href="https://wa.me/' + CONTACTO.whatsapp + '?text=' + encodeURIComponent(mensaje) + '">WhatsApp</a>' +
+    '<a class="ca" href="mailto:' + CONTACTO.correo + '?subject=' + encodeURIComponent(asunto) + '&body=' +
+      encodeURIComponent(mensaje) + '">Correo</a>' +
+    '<a class="ca" href="tel:' + CONTACTO.telefono.replace(/ /g, '') + '">Llamar</a></div></div>';
+}
+var DIAS_AVISO = 5;   // una temporal avisa al abrir la app cuando le quedan estos días
+function avisoVence(e){
+  var q = e.vence - e.hoy;
+  return 'La licencia de esta tablet vence ' + (q === 0 ? 'hoy' : q === 1 ? 'mañana' : 'el ' + fechaDia(e.vence)) +
+         '. Pide la licencia nueva a tu proveedor (Ajustes → Escribir otra licencia).';
+}
+// pantalla de activación: sin licencia, vencida, con el reloj atrasado o para cambiar una temporal
+function mostrarLicencia(){
+  var e = estadoLicencia();
+  $('licTablet').textContent = LICENCIA.codigo();
+  $('licTexto').textContent =
+    e.motivo === 'vencida' ? 'La licencia temporal de esta tablet venció el ' + fechaDia(e.vence) + '. Envía el código ' +
+      'de esta tablet a tu proveedor: te devolverá un código de licencia nuevo para escribirlo aquí abajo.' :
+    e.motivo === 'reloj' ? 'La fecha de esta tablet está atrasada (' + fechaDia(e.hoy) + '): la app ya se usó el ' +
+      fechaDia(e.ancla) + '. Pon la fecha correcta en los ajustes de Android y vuelve a abrir la app.' :
+    e.activa && !e.temporal ? 'Esta tablet ya tiene licencia permanente.' :
+    e.activa ? 'Esta tablet tiene una licencia temporal hasta el ' + fechaDia(e.vence) + '. Cuando tu proveedor te ' +
+      'mande la licencia nueva, escríbela aquí abajo.' :
+    'Esta tablet todavía no tiene licencia. Envía el código de esta tablet a tu proveedor: te devolverá ' +
+      'un código de licencia para escribirlo aquí abajo.';
+  $('licPie').style.display = e.activa && appIniciada ? '' : 'none';
+  $('licContacto').innerHTML = htmlContacto('Pide la licencia a', 'Licencia de Registro de Transferencias',
+    'Hola, necesito la licencia de Registro de Transferencias. Código de esta tablet: ' + LICENCIA.codigo());
+  aviso('aviLic');
+  ver('vLicencia');
+}
 function copiarCodigoTablet(){
   var c = LICENCIA.codigo();
   (navigator.clipboard ? navigator.clipboard.writeText(c) : Promise.reject())
@@ -553,15 +617,22 @@ function enviarCodigoTablet(){
 function activarLicencia(){
   var t = $('inLic').value.trim();
   if (!t){ aviso('aviLic', 'Escribe el código de licencia.'); $('inLic').focus(); return; }
-  if (!LICENCIA.activar(t)){
-    aviso('aviLic', 'Ese código de licencia no es para esta tablet. Revísalo o pide uno nuevo ' +
-                    'con el código ' + LICENCIA.codigo() + '.');
+  var r = LICENCIA.activar(t);
+  if (r !== 'ok'){
+    aviso('aviLic',
+      r === 'vencida' ? 'Esa licencia temporal ya venció. Pide una nueva con el código ' + LICENCIA.codigo() + '.' :
+      r === 'reloj' ? 'La fecha de esta tablet está atrasada: corrígela en los ajustes de Android y vuelve a intentarlo.' :
+      r === 'permanente' ? 'Esta tablet ya tiene licencia permanente: esa licencia temporal no hace falta.' :
+      r === 'error' ? 'No se pudo guardar la licencia. Vuelve a intentarlo.' :
+      'Ese código de licencia no es para esta tablet. Revísalo o pide uno nuevo con el código ' + LICENCIA.codigo() + '.');
     $('inLic').select();
     return;
   }
+  $('inLic').value = '';
+  var e = estadoLicencia();
   ver('vInicio');
   iniciarApp();
-  aviso('aviInicio', 'App activada. ¡Lista para usar!', 'ok');
+  aviso('aviInicio', e.temporal ? 'App activada hasta el ' + fechaDia(e.vence) + '.' : 'App activada. ¡Lista para usar!', 'ok');
 }
 
 // pide a Chrome que no borre los datos si la tablet se queda sin espacio
@@ -1085,9 +1156,20 @@ function pintarAjustes(){
        protegido === false ? 'no concedida (instala la app para obtenerla)' : 'no disponible') +
       '</b><br>' +
     'Última copia: <b>' + (d.ultimaCopia ? fechaLarga(d.ultimaCopia) : 'nunca') + '</b>' +
-    (LICENCIA ? '<br>Licencia: <b>activa</b> · tablet <b>' + LICENCIA.codigo() + '</b>' : '');
+    (LICENCIA ? '<br>Licencia: <b>' + textoLicencia() + '</b> · tablet <b>' + LICENCIA.codigo() + '</b>' +
+                (estadoLicencia().temporal ? '<br><button class="ln mini" onclick="mostrarLicencia()">Escribir otra licencia</button>' : '')
+              : '');
   pintarFormatos();
   pintarSmsAjustes();
+  pintarContactoAjustes();
+}
+function pintarContactoAjustes(){
+  $('ajContacto').innerHTML = htmlContacto('Licencias y soporte', 'Soporte de Registro de Transferencias',
+    'Hola, necesito ayuda con Registro de Transferencias.' + (LICENCIA ? ' Código de la tablet: ' + LICENCIA.codigo() : ''));
+}
+function textoLicencia(){
+  var e = estadoLicencia();
+  return e.temporal ? 'temporal, hasta el ' + fechaDia(e.vence) : 'activa';
 }
 function pintarFormatos(){
   $('formatos').innerHTML = d.patrones.map(function(p, i){
@@ -1539,11 +1621,18 @@ function cerrarModal(){ $('modal').className = 'modal'; }
 cargar();
 proteger();
 patron = buscarPatron(d.ultimoPatron);
+var appIniciada = false;
 if (licenciaActiva()) iniciarApp();
-else { $('licTablet').textContent = LICENCIA.codigo(); ver('vLicencia'); }
+else mostrarLicencia();
 
 function iniciarApp(){
   pintarInicio();
+  if (appIniciada) return;   // al cambiar una licencia temporal con la app ya en marcha
+  appIniciada = true;
+  if (LICENCIA){
+    var e = estadoLicencia();
+    if (e.temporal && e.vence - e.hoy <= DIAS_AVISO) aviso('aviInicio', avisoVence(e), 'war');
+  }
   pintarPatrones();
   if (!NATIVO) return;
   configurarSms();
@@ -1552,7 +1641,10 @@ function iniciarApp(){
   // llegó un SMS con la app abierta, o la app vuelve a primer plano (p. ej. al tocar la notificación)
   Nat.sms.addListener('sms', recogerSms);
   document.addEventListener('visibilitychange', function(){
-    if (!document.hidden){ refrescarEstadoSms(); recogerSms(); }
+    if (document.hidden) return;
+    // una temporal puede vencer con la app abierta durante días
+    if (!licenciaActiva()){ mostrarLicencia(); return; }
+    refrescarEstadoSms(); recogerSms();
   });
 }
 $('inLic').addEventListener('input', function(){
@@ -1645,6 +1737,7 @@ window.usarSms = usarSms; window.descartarSms = descartarSms; window.revisarHoy 
 window.activarSms = activarSms; window.guardarRemitentes = guardarRemitentes;
 window.copiarCodigoTablet = copiarCodigoTablet; window.enviarCodigoTablet = enviarCodigoTablet;
 window.activarLicencia = activarLicencia;
+window.mostrarLicencia = mostrarLicencia;
 window.verSmsHoy = verSmsHoy; window.recuperarSms = recuperarSms; window.alternarUsados = alternarUsados;
 window.usarCliente = usarCliente; window.olvidarClientes = olvidarClientes; window.alternarLista = alternarLista;
 })();

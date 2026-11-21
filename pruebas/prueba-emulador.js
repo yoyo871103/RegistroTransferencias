@@ -72,7 +72,7 @@ const val = s => pg.$eval(s, e => e.value);
   // 1. permisos
   await pg.evaluate(() => document.querySelectorAll('#vInicio .pie button')[1].click());
   await espera(500);
-  ok((await val('#smsRem')) === 'PAGOxMOVIL', 'remitente por defecto: PAGOxMOVIL');
+  ok((await val('#smsRem')) === 'PAGOxMOVIL, ENZONA', 'remitentes por defecto: PAGOxMOVIL y ENZONA');
   await pg.click('#btnActivarSms');
   const p1 = await tocar(['Allow', 'Permitir']); await espera(800);
   const p2 = await tocar(['Allow', 'Permitir'], 5); await espera(1000);

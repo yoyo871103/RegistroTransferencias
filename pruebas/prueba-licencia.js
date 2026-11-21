@@ -19,7 +19,9 @@ const notifApp = () => adb('shell', 'dumpsys', 'notification', '--noredact')
   .split('NotificationRecord(').filter(b => b.includes('pkg=' + PKG)).join(' | ');
 
 let browser, pg;
-async function conectar(){
+// justo después de arrancar, a veces la conexión toma la página antes de que cargue:
+// si no aparece la app en 10 s, se vuelve a conectar
+async function conectar(intento = 1){
   if (browser) try { browser.disconnect(); } catch(e){}
   let sock = '';
   for (let i = 0; i < 20 && !sock; i++){
@@ -27,11 +29,18 @@ async function conectar(){
     if (pid && adb('shell', 'cat', '/proc/net/unix').includes('webview_devtools_remote_' + pid)) sock = 'webview_devtools_remote_' + pid;
     else await espera(500);
   }
-  adb('forward', 'tcp:9333', 'localabstract:' + sock);
-  browser = await puppeteer.connect({ browserURL: 'http://127.0.0.1:9333', defaultViewport: null });
-  pg = (await browser.pages()).find(p => p.url().startsWith('https://localhost'));
+  try {
+    adb('forward', 'tcp:9333', 'localabstract:' + sock);
+    browser = await puppeteer.connect({ browserURL: 'http://127.0.0.1:9333', defaultViewport: null });
+    pg = (await browser.pages()).find(p => p.url().startsWith('https://localhost'));
+    if (!pg) throw new Error('sin página');
+    await pg.waitForFunction(() => typeof window.activarLicencia === 'function', { timeout: 10000 });
+  } catch (e){
+    if (intento >= 3) throw e;
+    await espera(1500);
+    return conectar(intento + 1);
+  }
   pg.on('dialog', d => d.accept());
-  await pg.waitForFunction(() => typeof window.activarLicencia === 'function');
 }
 const visible = () => pg.evaluate(() => document.querySelector('.vista.on').id);
 const txt = s => pg.$eval(s, e => e.textContent);

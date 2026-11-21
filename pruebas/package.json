@@ -5,7 +5,7 @@
   "scripts": {
     "unitarias": "node extraer-app.js && node t-ci.js && node t-sms.js && node t-enzona.js",
     "pwa": "node prueba.js && node prueba-tel.js && node prueba-memoria.js && node prueba-clientes.js && node prueba-apk.js",
-    "emulador": "node prueba-emulador.js && node prueba-enzona.js && node prueba-licencia.js",
+    "emulador": "node prueba-emulador.js && node prueba-enzona.js && node prueba-licencia.js && node prueba-temporal.js",
     "todo": "npm run unitarias && npm run pwa"
   },
   "devDependencies": {

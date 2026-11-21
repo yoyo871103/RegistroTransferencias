@@ -3,6 +3,7 @@
    Uso:
      node licencia.js                     prepara el secreto y el generador (la primera vez)
      node licencia.js K7M2Q-9XH4T         da la licencia para ese código de tablet
+     node licencia.js K7M2Q-9XH4T 2026-12-21   licencia temporal: vale hasta ese día incluido
 
    Cómo funciona:
    - La app muestra el "código de esta tablet", sacado del identificador que
@@ -49,6 +50,38 @@ function licenciaPara(secretoHex, codigoTablet){
   return agrupar(base32(firma, 12), 4);
 }
 
+/* Licencia temporal (12 caracteres, la misma casilla que la permanente):
+   3 caracteres = día de vencimiento contado desde el 2026-01-01 (15 bits, el más
+   significativo primero; vale hasta el final de ese día) + 9 caracteres de
+   HMAC-SHA256(secreto, "RT-TMP|" + código + "|" + esos 3). Igual que Licencia.java. */
+const DIA_CERO = Date.UTC(2026, 0, 1);
+function diaDe(fecha){          // 'AAAA-MM-DD' → días desde el 2026-01-01
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(fecha || ''));
+  if (!m) throw new Error('La fecha de vencimiento va como AAAA-MM-DD.');
+  return Math.round((Date.UTC(+m[1], +m[2] - 1, +m[3]) - DIA_CERO) / 864e5);
+}
+function fechaDe(dia){ return new Date(DIA_CERO + dia * 864e5).toISOString().slice(0, 10); }
+function diaEnBase32(dia){
+  if (!(dia >= 0 && dia <= 32767)) throw new Error('La fecha de vencimiento está fuera de rango.');
+  return ALFABETO[(dia >> 10) & 31] + ALFABETO[(dia >> 5) & 31] + ALFABETO[dia & 31];
+}
+function firmaTemporal(secretoHex, c, d){
+  return base32(crypto.createHmac('sha256', Buffer.from(secretoHex, 'hex')).update('RT-TMP|' + c + '|' + d).digest(), 9);
+}
+// vence: 'AAAA-MM-DD', último día en que vale
+function licenciaTemporal(secretoHex, codigo, vence){
+  const c = normalizar(codigo);
+  if (c.length !== 10) throw new Error('El código de la tablet tiene 10 caracteres (p. ej. K7M2Q-9XH4T).');
+  const d = diaEnBase32(diaDe(vence));
+  return agrupar(d + firmaTemporal(secretoHex, c, d), 4);
+}
+// 'AAAA-MM-DD' si la licencia es una temporal válida para ese código; null si no
+function venceTemporal(secretoHex, codigo, licencia){
+  const l = normalizar(licencia), c = normalizar(codigo), d = l.slice(0, 3);
+  if (l.length !== 12 || /[^0-9A-HJKMNP-TV-Z]/.test(d) || firmaTemporal(secretoHex, c, d) !== l.slice(3)) return null;
+  return fechaDe((ALFABETO.indexOf(d[0]) << 10) | (ALFABETO.indexOf(d[1]) << 5) | ALFABETO.indexOf(d[2]));
+}
+
 function leerSecreto(){
   if (!fs.existsSync(ARCHIVO_SECRETO)) return null;
   const s = fs.readFileSync(ARCHIVO_SECRETO, 'utf8').trim();
@@ -62,7 +95,7 @@ function escribirGenerador(secreto){
   fs.writeFileSync(ARCHIVO_GENERADOR, html);
 }
 
-module.exports = { licenciaPara, normalizar, base32, ALFABETO };
+module.exports = { licenciaPara, licenciaTemporal, venceTemporal, diaDe, normalizar, base32, ALFABETO };
 
 if (require.main === module){
   let secreto = leerSecreto();
@@ -73,6 +106,9 @@ if (require.main === module){
   }
   escribirGenerador(secreto);
   const codigo = process.argv[2];
-  if (codigo) console.log('Licencia para ' + agrupar(normalizar(codigo), 5) + ':  ' + licenciaPara(secreto, codigo));
+  const vence = process.argv[3];
+  if (codigo && vence) console.log('Licencia temporal (hasta el ' + vence + ') para ' + agrupar(normalizar(codigo), 5) + ':  ' +
+                                   licenciaTemporal(secreto, codigo, vence));
+  else if (codigo) console.log('Licencia para ' + agrupar(normalizar(codigo), 5) + ':  ' + licenciaPara(secreto, codigo));
   else console.log('Generador listo: abre generador-licencias.html (no lo compartas: lleva el secreto).');
 }

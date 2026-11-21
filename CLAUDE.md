@@ -18,6 +18,15 @@ Hay **dos versiones del mismo código**:
 
 El repositorio es **público**: nunca subir secretos, claves ni datos reales de clientes.
 
+El Conciliador está al lado, en `../conciliador-transferencias` (privado; la
+versión nueva en .NET está en su carpeta `dotnet/`). Lo que comparten los dos
+(Excel, licencias, carpeta de secretos, estilo, pruebas cruzadas) está en:
+
+@../conciliador-transferencias/docs/ECOSISTEMA.md
+
+No copiar aquí el contenido de ese documento: este repositorio es público y
+aquel no.
+
 ---
 
 ## Archivos
@@ -129,11 +138,24 @@ ENZONA:     ENZONA pago recibido, Importe: 10.00 CUP No.: Xn24kbc2NDFV
 - Código de la tablet = 10 caracteres base32 (Crockford) de
   `SHA-256("RT|" + ANDROID_ID)`. Licencia = 12 caracteres de
   `HMAC-SHA256(secreto, "RT-LIC|" + código)`. `Licencia.java`, `licencia.js` y la
-  plantilla HTML deben calcular **exactamente lo mismo**.
+  plantilla HTML deben calcular **exactamente lo mismo**, y también `Emisor.cs`
+  (`Tablet`) del Conciliador.
+- **Las licencias se emiten con el generador único del Conciliador**
+  (`../conciliador-transferencias/dotnet/GeneradorLicencias`), que reconoce si
+  el código es de una tablet o de una PC y lleva un solo registro
+  (`%USERPROFILE%\VT SOFTWARE\licencias\licencias_emitidas.csv`).
+  `licencia.js` y `generador-licencias.html` quedan como alternativa.
 - El secreto está en `apk/licencia.secreto` (no versionado); Gradle lo mete en
-  `BuildConfig.LICENCIA_SECRETO` y falla si falta.
+  `BuildConfig.LICENCIA_SECRETO` y falla si falta. El generador usa la copia de
+  `%USERPROFILE%\VT SOFTWARE\licencias\licencia.secreto`: **deben ser idénticos**.
 - ANDROID_ID cambia con un restablecimiento de fábrica o si cambia la firma del
   APK (las licencias del APK de pruebas no valen en el de entrega).
+- **Licencia temporal**: 12 caracteres en la misma casilla. Los 3 primeros llevan el
+  día de vencimiento y los otros 9 son `HMAC(secreto, "RT-TMP|" + código + "|" + esos 3)`.
+  Detalle y protección del reloj en ECOSISTEMA.md del Conciliador.
+  `LicenciaNativa.estado()` devuelve un JSON `{activa, temporal, vence, hoy, ancla, motivo}`
+  (días desde el 2026-01-01). `activar()` devuelve `"ok"`, `"otra"`, `"vencida"`,
+  `"reloj"`, `"permanente"` o `"error"`. Prueba en el emulador: `prueba-temporal.js`.
 
 ## Secretos (fuera del repositorio, el usuario tiene copia)
 
@@ -171,7 +193,8 @@ gradlew -I ..\espejo-google.gradle assembleRelease    (entrega, firmado)
 - **Cada entrega: subir `versionCode`** (y `versionName`) en
   `apk/android/app/build.gradle`, compilar release y copiar a
   `apk/entrega/RegistroTransferencias-<versión>.apk` (los `.apk` no se versionan).
-  Versión entregada: 1.0 (versionCode 1), octubre de 2026.
+  Versiones: 1.0 (versionCode 1), octubre de 2026; 1.1 (versionCode 2, licencias
+  temporales y contacto de soporte), noviembre de 2026.
 - `minifyEnabled false` (no probado con R8).
 
 ## Publicar la PWA
@@ -197,6 +220,8 @@ puppeteer y APK en el emulador vía adb. Antes de dar algo por terminado, correr
 `npm run todo` en `pruebas/`; si se toca el APK, también `npm run emulador`
 (necesita el APK de **pruebas** instalado: el de entrega no permite depurar).
 Los SMS de las pruebas son inventados o con teléfonos y cuentas cambiados.
+Si se toca el Excel o las licencias, correr también `dotnet test Pruebas` en
+`../conciliador-transferencias/dotnet` (ECOSISTEMA §5).
 
 ## Notas para Claude en este PC
 
@@ -209,9 +234,12 @@ Los SMS de las pruebas son inventados o con teléfonos y cuentas cambiados.
 
 ## Pendiente / decisiones abiertas
 
-- ENZONA tecleado a mano se pasa a mayúsculas: falta saber si el Conciliador
-  distingue mayúsculas (si sí, añadir un formato "ENZONA" que respete lo tecleado).
-- Confirmar que el Conciliador acepta la columna TELEFONO.
+- ENZONA tecleado a mano se pasa a mayúsculas: el Conciliador **no** distingue
+  mayúsculas al leer el Excel (normaliza a mayúsculas), así que no hace falta un
+  formato aparte. Lo que falta es que el Conciliador encuentre pagos de ENZONA
+  en el PDF del banco (ECOSISTEMA §2).
+- Confirmar con un Excel real de una tablet que el Conciliador no tiene problema
+  con la columna TELEFONO (no la usa).
 - Probar el APK de entrega en tablets reales: permiso de SMS instalado por Zapya
   (Android 13+), notificaciones con ahorro de batería de cada marca.
 - IndexedDB para la PWA: descartado por ahora (el APK ya no tiene límite).
