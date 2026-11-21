@@ -51,6 +51,8 @@
     <uses-permission android:name="android.permission.RECEIVE_SMS" />
     <uses-permission android:name="android.permission.READ_SMS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Guardar el Excel en Descargas: solo hace falta hasta Android 9 (desde el 10 se usa MediaStore). -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 
     <!-- Que se pueda instalar también en tablets sin SIM (sin SMS, pero con todo lo demás). -->
     <uses-feature android:name="android.hardware.telephony" android:required="false" />

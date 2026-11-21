@@ -534,7 +534,8 @@ var NATIVO = !!(window.Capacitor && Capacitor.registerPlugin && Capacitor.isNati
                 Capacitor.isNativePlatform());
 var Nat = NATIVO ? { fs: Capacitor.registerPlugin('Filesystem'),
                      share: Capacitor.registerPlugin('Share'),
-                     sms: Capacitor.registerPlugin('Sms') } : null;
+                     sms: Capacitor.registerPlugin('Sms'),
+                     descargas: Capacitor.registerPlugin('Descargas') } : null;
 
 // En el APK sí se puede compartir cualquier archivo (en Chrome, .xlsx no).
 // datos: base64, o texto si utf8 es true.
@@ -1079,8 +1080,8 @@ function descargar(registros, nombre){
   if (!registros.length){ alert('No hay registros que exportar.'); return; }
   try {
     if (NATIVO){
-      enviarArchivo(nombre, XLSX.write(construirLibro(registros),
-                    { bookType:'xlsx', type:'base64', cellDates:true }));
+      opcionesArchivo('Excel listo', nombre, registros.length + (registros.length === 1 ? ' registro' : ' registros'),
+                      XLSX.write(construirLibro(registros), { bookType:'xlsx', type:'base64', cellDates:true }), TIPO_XLSX);
       return;
     }
     XLSX.writeFile(construirLibro(registros), nombre,
@@ -1090,6 +1091,48 @@ function descargar(registros, nombre){
     return;
   }
   guiaCompartir(nombre);
+}
+/* En el APK: guardar en la tablet (Descargas/Registro de Transferencias, para sacarlo
+   con un cable o abrirlo con la app Archivos) o compartir. Así no hace falta instalar
+   otra app para tener el archivo en la tablet. DescargasPlugin.java lo guarda. */
+var archivoPendiente = null;
+var TIPO_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+// titulo: "Excel listo"…; detalle: texto bajo el nombre; base64: el contenido
+function opcionesArchivo(titulo, nombre, detalle, base64, tipo){
+  archivoPendiente = { nombre:nombre, datos:base64, tipo:tipo };
+  modal('<h3>' + titulo + '</h3>' +
+    '<p><b>' + esc(nombre) + '</b>' + (detalle ? ' · ' + detalle : '') + '</p>' +
+    '<button class="gr" onclick="guardarEnTablet()">Guardar en la tablet</button>' +
+    '<p style="margin:6px 0 12px">Queda en <b>Descargas › Registro de Transferencias</b>: se abre con la app ' +
+      'Archivos o se copia a la PC con un cable.</p>' +
+    '<button class="ln" onclick="compartirArchivo()">Compartir (WhatsApp, Zapya, correo…)</button>' +
+    '<div style="margin-top:8px"><button class="ln" onclick="cerrarModal()">Cancelar</button></div>');
+}
+function compartirArchivo(){
+  var x = archivoPendiente; if (!x) return;
+  cerrarModal();
+  enviarArchivo(x.nombre, x.datos);
+}
+function guardarEnTablet(){
+  var x = archivoPendiente; if (!x) return;
+  Nat.descargas.guardar({ nombre:x.nombre, datos:x.datos, tipo:x.tipo }).then(function(r){
+    modal('<h3>Guardado en la tablet</h3>' +
+      '<p>Se guardó <b>' + esc(r.nombre) + '</b> en <b>' + esc(r.carpeta.replace('/', ' › ')) + '</b>.</p>' +
+      '<div class="sec">Para pasarlo a la PC con un cable</div>' +
+      '<ol class="pasos">' +
+      '<li>Conecta la tablet a la PC y, en el aviso de la tablet, elige <b>Transferencia de archivos</b>.</li>' +
+      '<li>En la PC abre la tablet y entra en <b>Download › Registro de Transferencias</b>.</li>' +
+      '<li>Copia <b>' + esc(r.nombre) + '</b> a la PC.</li>' +
+      '</ol>' +
+      '<div style="margin-top:16px"><button class="gr" onclick="cerrarModal()">Entendido</button></div>');
+  }).catch(function(e){
+    var m = String(e && (e.message || e));
+    modal('<h3>No se pudo guardar</h3><p>' + esc(m) + '</p>' +
+      (e && e.code === 'PERMISO' ? '<p>Para guardar en la tablet hay que permitir el acceso a los archivos. ' +
+        'También puedes usar <b>Compartir</b>.</p>' : '') +
+      '<div class="fila" style="margin-top:12px"><button class="ln" onclick="cerrarModal()">Cerrar</button>' +
+      '<button class="gr" onclick="compartirArchivo()">Compartir</button></div>');
+  });
 }
 /* Chrome no deja compartir .xlsx directo desde una página web (solo PDF, CSV,
    imágenes…), así que se descarga y se explica cómo enviarlo desde Archivos. */
@@ -1278,7 +1321,9 @@ function borrarTodo(){
 function respaldar(){
   d.ultimaCopia = hoy();
   var t = JSON.stringify(d), nombre = 'respaldo_transferencias_' + hoy() + '.json';
-  if (NATIVO) enviarArchivo(nombre, t, true);
+  // texto → base64 (UTF-8) para el plugin, que guarda bytes
+  if (NATIVO) opcionesArchivo('Copia de seguridad lista', nombre, d.registros.length + ' registros',
+                              btoa(unescape(encodeURIComponent(t))), 'application/json');
   else {
     var a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([t], {type:'application/json'}));
@@ -1727,6 +1772,7 @@ window.abrirLote = abrirLote; window.retomar = retomar; window.agregar = agregar
 window.editar = editar; window.guardarEdicion = guardarEdicion; window.eliminar = eliminar;
 window.ponerImporte = ponerImporte; window.ponerPatron = ponerPatron; window.gestionarCajeros = gestionarCajeros;
 window.anadirCajero = anadirCajero; window.quitarCajero = quitarCajero;
+window.guardarEnTablet = guardarEnTablet; window.compartirArchivo = compartirArchivo;
 window.exportarLoteActual = exportarLoteActual; window.exportarFecha = exportarFecha;
 window.exportarTodo = exportarTodo; window.borrarLote = borrarLote;
 window.confirmarBorrarLote = confirmarBorrarLote; window.borrarTodo = borrarTodo;

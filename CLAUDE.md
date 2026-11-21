@@ -50,6 +50,7 @@ apk/                  proyecto Android (ver apk/LEEME.md)
     SmsPlugin.java      puente Capacitor 'Sms' (permisos, pendientes, leerDesde…)
     AlmacenPlugin.java  window.AlmacenNativo: datos en archivo, llamadas SÍNCRONAS
     LicenciaPlugin.java window.LicenciaNativa: licencia por tablet, SÍNCRONO
+    DescargasPlugin.java puente 'Descargas': guarda archivos en Descargas/Registro de Transferencias
     Licencia.java       cálculo de la licencia (Java puro, igual que licencia.js)
 pruebas/              pruebas automáticas (ver pruebas/LEEME.md)
 ```
@@ -108,7 +109,12 @@ Clave de localStorage: `vt_registro_transferencias_v1`.
 - **Memoria (PWA)**: avisos al 80 % y 95 % de ~5 MB; recordatorio de copia de
   seguridad a los 7 días. En el APK, aviso si a la tablet le quedan < 50 MB.
 - Chrome no deja compartir `.xlsx` desde una web: la PWA lo descarga y muestra
-  una guía; el APK lo comparte directo (Filesystem + Share).
+  una guía. En el APK, el Excel y la copia de seguridad ofrecen **Guardar en la
+  tablet** o **Compartir** (`opcionesArchivo`). Guardar lo hace `DescargasPlugin`
+  en `Descargas/Registro de Transferencias`: desde Android 10 con MediaStore y sin
+  permisos; en Android 7-9, con el permiso de almacenamiento, que se pide la primera
+  vez (`maxSdkVersion 28`; ese camino no está probado en emulador). Así se puede
+  sacar con un cable sin instalar otra app. Prueba: `prueba-guardar.js`.
 
 ## SMS (APK)
 

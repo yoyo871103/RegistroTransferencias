@@ -7,13 +7,14 @@ const CLAVE = 'vt_registro_transferencias_v1';
 const ok = (c, m) => { console.log((c ? 'PASS ' : 'FAIL ') + m); if (!c) process.exitCode = 1; };
 
 const mock = () => {
-  const M = window.__mock = { files:[], shares:[], cola:[], quitadas:[], config:null, inbox:[],
+  const M = window.__mock = { files:[], shares:[], guardados:[], cola:[], quitadas:[], config:null, inbox:[],
     estado:{ sms:'prompt', notificaciones:'prompt' }, activarResult:{ sms:'granted', notificaciones:'granted' },
     listeners:{} };
   try { const g = JSON.parse(sessionStorage.getItem('__mock') || 'null'); if (g) Object.assign(M, g); } catch(e){}
   const plugins = {
     Filesystem: { writeFile: async op => { M.files.push(op); return { uri:'file:///cache/' + op.path }; } },
     Share: { share: async o => { M.shares.push(o); return {}; } },
+    Descargas: { guardar: async o => { M.guardados.push(o); return { nombre:o.nombre, carpeta:'Descargas/Registro de Transferencias' }; } },
     Sms: {
       estado: async () => M.estado,
       activar: async () => (M.estado = M.activarResult),
@@ -169,18 +170,38 @@ const mock = () => {
   ok(await val('#inImp') === '' && (await pg.evaluate(() => document.activeElement.id)) === 'inImp' &&
      (await txt('#aviCap')).includes('no trae un importe'), 'SMS sin importe: pide escribirlo');
 
-  // exportar y respaldo: se comparten directamente
-  await pg.evaluate(() => { window.__mock.files = []; window.__mock.shares = []; });
+  // exportar y respaldo: se elige guardar en la tablet o compartir
+  const boton = t => pg.evaluate(x => [].find.call(document.querySelectorAll('#cajaModal button'), e => e.textContent.indexOf(x) === 0).click(), t);
+  await pg.evaluate(() => { window.__mock.files = []; window.__mock.shares = []; window.__mock.guardados = []; });
   await pg.click('[onclick="exportarLoteActual()"]'); await espera();
+  ok((await txt('#cajaModal')).includes('Excel listo') && (await txt('#cajaModal')).includes('Guardar en la tablet'),
+     'exportar: ofrece guardar en la tablet o compartir');
+  await boton('Compartir'); await espera();
   m = await M();
   ok(m.files.length === 1 && /^TRANSFERENCIAS_.*\.xlsx$/.test(m.files[0].path) && m.files[0].data.length > 1000 &&
      m.files[0].directory === 'CACHE' && !m.files[0].encoding, 'Excel escrito en base64');
   ok(m.shares.length === 1 && m.shares[0].files[0] === 'file:///cache/' + m.files[0].path, 'Excel compartido');
-  ok(!(await pg.$('#modal.on')), 'sin guía de Descargas en el APK');
-  await pg.evaluate(() => respaldar()); await espera();
+  ok(!(await pg.$('#modal.on')), 'al compartir se cierra la ventana');
+  await pg.click('[onclick="exportarLoteActual()"]'); await espera();
+  await boton('Guardar en la tablet'); await espera();
   m = await M();
-  ok(m.files[1] && m.files[1].path.endsWith('.json') && m.files[1].encoding === 'utf8' &&
-     JSON.parse(m.files[1].data).registros.length === 1 && m.shares.length === 2, 'respaldo compartido');
+  ok(m.guardados.length === 1 && m.guardados[0].datos === m.files[0].data &&
+     m.guardados[0].tipo === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'Excel guardado en la tablet');
+  ok((await txt('#cajaModal')).includes('Guardado en la tablet') && (await txt('#cajaModal')).includes('Registro de Transferencias'),
+     'dice dónde quedó y cómo sacarlo con un cable');
+  await boton('Entendido');
+  await pg.evaluate(() => respaldar()); await espera();
+  await boton('Compartir'); await espera();
+  m = await M();
+  ok(m.files[1] && m.files[1].path.endsWith('.json') && !m.files[1].encoding &&
+     JSON.parse(Buffer.from(m.files[1].data, 'base64').toString('utf8')).registros.length === 1 && m.shares.length === 2,
+     'respaldo compartido');
+  await pg.evaluate(() => respaldar()); await espera();
+  await boton('Guardar en la tablet'); await espera();
+  m = await M();
+  ok(m.guardados.length === 2 && m.guardados[1].tipo === 'application/json' &&
+     JSON.parse(Buffer.from(m.guardados[1].datos, 'base64').toString('utf8')).registros.length === 1, 'respaldo guardado en la tablet');
+  await boton('Entendido');
 
   await pg.screenshot({ path: CFG.SALIDA + '/apk-captura.png' });
   ok(!errs.length, 'sin errores JS ' + errs.join('; '));

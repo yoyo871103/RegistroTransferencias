@@ -11,6 +11,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(LicenciaPlugin.class);
         registerPlugin(AlmacenPlugin.class);
         registerPlugin(SmsPlugin.class);
+        registerPlugin(DescargasPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
